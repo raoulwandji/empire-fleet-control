@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
 
     if (format === 'pdf') {
       const buffer = await buildPdfBuffer('EMPIRE-FLEET CONTROL — Liste des chauffeurs', columns, rows);
-      return new NextResponse(buffer, {
+      return new NextResponse(new Uint8Array(buffer), {
         headers: {
           'Content-Type': 'application/pdf',
           'Content-Disposition': 'attachment; filename="chauffeurs.pdf"',
@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
     }
 
     const buffer = await buildExcelBuffer('Chauffeurs', columns, rows);
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'Content-Disposition': 'attachment; filename="chauffeurs.xlsx"',

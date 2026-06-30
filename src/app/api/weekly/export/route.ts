@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
 
     if (format === 'pdf') {
       const buffer = await buildPdfBuffer(title, columns, rows);
-      return new NextResponse(buffer, {
+      return new NextResponse(new Uint8Array(buffer), {
         headers: {
           'Content-Type': 'application/pdf',
           'Content-Disposition': `attachment; filename="suivi-hebdo-${driver.code}.pdf"`,
@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
     }
 
     const buffer = await buildExcelBuffer('Suivi hebdo', columns, rows);
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'Content-Disposition': `attachment; filename="suivi-hebdo-${driver.code}.xlsx"`,

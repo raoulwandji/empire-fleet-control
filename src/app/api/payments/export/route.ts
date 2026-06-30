@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
     const rows = payments.map((p) => ({
       date: new Date(p.date).toLocaleDateString('fr-FR'),
       amount: formatFCFA(Number(p.amount)),
-      paymentMode: p.paymentMode,
+      paymentMode: String(p.paymentMode),
       unusual: p.isUnusualDay ? 'Oui' : '',
       comment: p.comment ?? '',
       enteredBy: p.enteredBy.fullName,
@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
 
     if (format === 'pdf') {
       const buffer = await buildPdfBuffer(title, columns, rows);
-      return new NextResponse(buffer, {
+      return new NextResponse(new Uint8Array(buffer), {
         headers: {
           'Content-Type': 'application/pdf',
           'Content-Disposition': `attachment; filename="feuille-${driver.code}.pdf"`,
@@ -83,7 +83,7 @@ export async function GET(req: NextRequest) {
     }
 
     const buffer = await buildExcelBuffer(label, columns, rows);
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'Content-Disposition': `attachment; filename="feuille-${driver.code}.xlsx"`,

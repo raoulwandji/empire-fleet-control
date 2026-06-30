@@ -8,3 +8,5 @@ node_modules
 IMG_5706*.jpg
 *.tsbuildinfo
 next-env.d.ts
+.vercel
+.env*
