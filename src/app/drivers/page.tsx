@@ -89,44 +89,6 @@ export default function DriversPage() {
           </div>
         </div>
 
-        {/* ── EXPORTS ────────────────────────────────────── */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Cellule 1 — Profils chauffeurs */}
-          <div className="card p-4 flex flex-col gap-3">
-            <div>
-              <h3 className="font-display font-bold text-sm text-hud-cyan tracking-widest uppercase">Profils Chauffeurs</h3>
-              <p className="text-xs text-gray-500 mt-1">Fiche identité : chauffeur, propriétaire &amp; garant. Aucune donnée financière.</p>
-            </div>
-            <a href="/api/export/driver-profiles" className="btn-primary text-xs py-2 text-center">
-              ⬇ Télécharger les profils (Excel)
-            </a>
-          </div>
-
-          {/* Cellule 2 — Modèle versements hebdo */}
-          <div className="card p-4 flex flex-col gap-3">
-            <div>
-              <h3 className="font-display font-bold text-sm text-hud-cyan tracking-widest uppercase">Feuille Versements</h3>
-              <p className="text-xs text-gray-500 mt-1">Modèle Excel prérempli avec noms + dates de la semaine. Colonnes : Versement · Heures · Courses · Commentaire.</p>
-            </div>
-            <a href="/api/export/payment-template" className="btn-primary text-xs py-2 text-center">
-              ⬇ Télécharger le modèle (Excel)
-            </a>
-          </div>
-
-          {/* Cellule 3 — Modèle suivi hebdo */}
-          <div className="card p-4 flex flex-col gap-3">
-            <div>
-              <h3 className="font-display font-bold text-sm text-hud-cyan tracking-widest uppercase">Feuille Suivi Hebdo</h3>
-              <p className="text-xs text-gray-500 mt-1">Modèle Excel prérempli par semaine (4 semaines). Colonnes : Heures · Courses · Total Versement · Commentaire.</p>
-            </div>
-            <a href="/api/export/weekly-template" className="btn-primary text-xs py-2 text-center">
-              ⬇ Télécharger le modèle (Excel)
-            </a>
-          </div>
-        </div>
-
-        <div className="h-px bg-gradient-to-r from-transparent via-hud-cyan/20 to-transparent" />
-
         {/* Légende */}
         <div className="flex items-center gap-4 text-xs text-gray-400">
           <div className="flex items-center gap-1.5">
