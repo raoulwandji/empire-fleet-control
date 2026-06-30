@@ -7,6 +7,7 @@ import { useSession, signOut } from 'next-auth/react';
 import { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import AvatarUploader from './AvatarUploader';
+import CredentialsEditor from './CredentialsEditor';
 
 const links = [
   { href: '/dashboard', label: 'Tableau de bord' },
@@ -104,6 +105,8 @@ export default function Navbar() {
               editable
               onUpdated={setAvatarUrl}
             />
+            <div className="h-px bg-hud-line" />
+            {session?.user.username && <CredentialsEditor username={session.user.username} />}
             <div className="h-px bg-hud-line" />
             <button onClick={() => signOut({ callbackUrl: '/login' })} className="btn-danger w-full !py-1.5">
               Déconnexion
