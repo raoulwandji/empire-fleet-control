@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import Navbar from '@/components/Navbar';
+import AvatarUploader from '@/components/AvatarUploader';
 
 type User = {
   id: string;
@@ -10,6 +11,7 @@ type User = {
   fullName: string;
   role: 'ADMIN' | 'MANAGER' | 'EMPLOYEE';
   active: boolean;
+  avatarUrl?: string | null;
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -141,6 +143,7 @@ export default function UsersPage() {
           <table className="hud-table">
             <thead>
               <tr>
+                <th>Photo</th>
                 <th>Identifiant</th>
                 <th>Nom</th>
                 <th>Rôle</th>
@@ -151,6 +154,7 @@ export default function UsersPage() {
             <tbody>
               {users.map((u) => (
                 <tr key={u.id}>
+                  <td><AvatarUploader fullName={u.fullName} avatarUrl={u.avatarUrl} size={32} /></td>
                   <td className="font-mono text-hud-cyan">{u.username}</td>
                   <td className="font-semibold text-white">{u.fullName}</td>
                   <td>

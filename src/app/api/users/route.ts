@@ -11,7 +11,7 @@ export async function GET() {
     requireAdminOrManager(session.user.role);
 
     const users = await prisma.user.findMany({
-      select: { id: true, username: true, fullName: true, role: true, active: true, createdAt: true },
+      select: { id: true, username: true, fullName: true, role: true, active: true, avatarUrl: true, createdAt: true },
       orderBy: { createdAt: 'desc' },
     });
 

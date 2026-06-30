@@ -4,7 +4,9 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
+import { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
+import AvatarUploader from './AvatarUploader';
 
 const links = [
   { href: '/dashboard', label: 'Tableau de bord' },
@@ -25,6 +27,25 @@ export default function Navbar() {
   const { data: session } = useSession();
   const role = session?.user.role;
   const isAdminOrManager = role === 'ADMIN' || role === 'MANAGER';
+
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!session?.user) return;
+    fetch('/api/profile')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => data && setAvatarUrl(data.avatarUrl ?? null));
+  }, [session?.user]);
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    }
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, []);
 
   return (
     <nav className="sticky top-0 z-50 bg-hud-panel/80 backdrop-blur-md border-b border-hud-cyan/20 px-4 py-3 flex items-center justify-between flex-wrap gap-2">
@@ -59,19 +80,36 @@ export default function Navbar() {
             })}
         </div>
       </div>
-      <div className="flex items-center gap-3 text-sm">
-        <span className="text-gray-400">
-          {session?.user.name}{' '}
-          <span className={clsx(
-            'font-semibold',
-            role === 'ADMIN' ? 'text-empire-rougeVif' : role === 'MANAGER' ? 'text-yellow-400' : 'text-hud-cyan'
-          )}>
-            ({roleLabel(role)})
+      <div className="flex items-center gap-3 text-sm relative" ref={menuRef}>
+        <button onClick={() => setMenuOpen((v) => !v)} className="flex items-center gap-2">
+          <AvatarUploader fullName={session?.user.name ?? '?'} avatarUrl={avatarUrl} size={32} />
+          <span className="text-gray-400 hidden sm:inline">
+            {session?.user.name}{' '}
+            <span className={clsx(
+              'font-semibold',
+              role === 'ADMIN' ? 'text-empire-rougeVif' : role === 'MANAGER' ? 'text-yellow-400' : 'text-hud-cyan'
+            )}>
+              ({roleLabel(role)})
+            </span>
           </span>
-        </span>
-        <button onClick={() => signOut({ callbackUrl: '/login' })} className="btn-danger !px-3 !py-1.5">
-          Déconnexion
         </button>
+
+        {menuOpen && (
+          <div className="absolute right-0 top-full mt-2 card p-4 w-64 z-50 space-y-3">
+            <p className="text-xs text-gray-500 uppercase tracking-widest">Photo de profil</p>
+            <AvatarUploader
+              fullName={session?.user.name ?? '?'}
+              avatarUrl={avatarUrl}
+              size={56}
+              editable
+              onUpdated={setAvatarUrl}
+            />
+            <div className="h-px bg-hud-line" />
+            <button onClick={() => signOut({ callbackUrl: '/login' })} className="btn-danger w-full !py-1.5">
+              Déconnexion
+            </button>
+          </div>
+        )}
       </div>
     </nav>
   );

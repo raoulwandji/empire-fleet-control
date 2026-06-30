@@ -179,6 +179,13 @@ function PaymentsTab({ driver, canWrite, onChange }: { driver: DriverDetail; can
   const [exportTo, setExportTo] = useState('');
   const label = driver.contractType === 'CONDITION_VENTE' ? 'Versement' : 'Loyer';
 
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDate, setEditDate] = useState('');
+  const [editAmount, setEditAmount] = useState('');
+  const [editMode, setEditMode] = useState('ESPECES');
+  const [editComment, setEditComment] = useState('');
+  const [editError, setEditError] = useState('');
+
   function buildExportUrl(format: 'pdf' | 'excel') {
     const p = new URLSearchParams({ driverId: driver.id, format });
     if (exportFrom) p.set('from', exportFrom);
@@ -192,6 +199,30 @@ function PaymentsTab({ driver, canWrite, onChange }: { driver: DriverDetail; can
       body: JSON.stringify({ driverId: driver.id, date, amount: Number(amount), paymentMode, comment: comment || undefined }) });
     if (!res.ok) { setError((await res.json()).error ?? 'Erreur.'); return; }
     setDate(''); setAmount(''); setComment(''); onChange();
+  }
+
+  function startEdit(p: any) {
+    setEditingId(p.id);
+    setEditDate(new Date(p.date).toISOString().slice(0, 10));
+    setEditAmount(String(p.amount));
+    setEditMode(p.paymentMode);
+    setEditComment(p.comment ?? '');
+    setEditError('');
+  }
+
+  async function saveEdit(id: string) {
+    setEditError('');
+    const res = await fetch(`/api/payments/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: editDate, amount: Number(editAmount), paymentMode: editMode, comment: editComment || undefined }) });
+    if (!res.ok) { setEditError((await res.json()).error ?? 'Erreur.'); return; }
+    setEditingId(null); onChange();
+  }
+
+  async function deletePayment(id: string) {
+    if (!confirm(`Supprimer ce ${label.toLowerCase()} ?`)) return;
+    const res = await fetch(`/api/payments/${id}`, { method: 'DELETE' });
+    if (!res.ok) { alert((await res.json()).error ?? 'Erreur.'); return; }
+    onChange();
   }
 
   return (
@@ -239,21 +270,49 @@ function PaymentsTab({ driver, canWrite, onChange }: { driver: DriverDetail; can
 
       <div className="card overflow-x-auto">
         <table className="hud-table">
-          <thead><tr><th>Date</th><th>Montant</th><th>Mode</th><th>Commentaire</th><th>Saisi par</th></tr></thead>
+          <thead><tr><th>Date</th><th>Montant</th><th>Mode</th><th>Commentaire</th><th>Saisi par</th>{canWrite && <th>Action</th>}</tr></thead>
           <tbody>
             {driver.payments.length === 0 ? (
-              <tr><td colSpan={5} className="text-center text-gray-600 py-6 italic">Aucun versement enregistré.</td></tr>
+              <tr><td colSpan={6} className="text-center text-gray-600 py-6 italic">Aucun versement enregistré.</td></tr>
             ) : driver.payments.map((p: any) => (
-              <tr key={p.id}>
-                <td className="whitespace-nowrap">
-                  {new Date(p.date).toLocaleDateString('fr-FR')}
-                  {p.isUnusualDay && <span className="badge-warn ml-2">Jour inhabituel</span>}
-                </td>
-                <td className="font-display text-hud-green font-bold">{formatFCFA(Number(p.amount))}</td>
-                <td className="text-gray-400 text-xs">{p.paymentMode}</td>
-                <td className="text-gray-400">{p.comment || '—'}</td>
-                <td className="text-gray-600 text-xs">{p.enteredBy?.fullName ?? '—'}</td>
-              </tr>
+              editingId === p.id ? (
+                <tr key={p.id} className="bg-hud-cyan/5">
+                  <td><input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} className="form-input w-auto" /></td>
+                  <td><input type="number" value={editAmount} onChange={(e) => setEditAmount(e.target.value)} className="form-input w-28" /></td>
+                  <td>
+                    <select value={editMode} onChange={(e) => setEditMode(e.target.value)} className="form-select w-36">
+                      <option value="ESPECES">Espèces</option>
+                      <option value="MOBILE_MONEY">Mobile Money</option>
+                      <option value="VIREMENT">Virement</option>
+                      <option value="AUTRE">Autre</option>
+                    </select>
+                  </td>
+                  <td><input value={editComment} onChange={(e) => setEditComment(e.target.value)} className="form-input w-full" /></td>
+                  <td className="text-gray-600 text-xs">{p.enteredBy?.fullName ?? '—'}</td>
+                  <td className="flex gap-1.5 flex-wrap">
+                    <button onClick={() => saveEdit(p.id)} className="btn-primary text-xs py-1 px-2">Enregistrer</button>
+                    <button onClick={() => setEditingId(null)} className="btn-secondary text-xs py-1 px-2">Annuler</button>
+                    {editError && <p className="text-xs text-empire-rougeVif w-full">{editError}</p>}
+                  </td>
+                </tr>
+              ) : (
+                <tr key={p.id}>
+                  <td className="whitespace-nowrap">
+                    {new Date(p.date).toLocaleDateString('fr-FR')}
+                    {p.isUnusualDay && <span className="badge-warn ml-2">Jour inhabituel</span>}
+                  </td>
+                  <td className="font-display text-hud-green font-bold">{formatFCFA(Number(p.amount))}</td>
+                  <td className="text-gray-400 text-xs">{p.paymentMode}</td>
+                  <td className="text-gray-400">{p.comment || '—'}</td>
+                  <td className="text-gray-600 text-xs">{p.enteredBy?.fullName ?? '—'}</td>
+                  {canWrite && (
+                    <td className="flex gap-1.5">
+                      <button onClick={() => startEdit(p)} className="btn-secondary text-xs py-1 px-2">Modifier</button>
+                      <button onClick={() => deletePayment(p.id)} className="btn-danger text-xs py-1 px-2">Supprimer</button>
+                    </td>
+                  )}
+                </tr>
+              )
             ))}
           </tbody>
         </table>
