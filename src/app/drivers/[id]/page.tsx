@@ -68,7 +68,7 @@ export default function DriverDetailPage() {
               Lecture seule — non affecté
             </span>
           )}
-          {isAdmin && (
+          {canWrite && (
             <>
               <Link href={`/drivers/${driver.id}/edit`} className="btn-secondary text-xs py-1.5 px-3">Modifier</Link>
               <button onClick={handleDelete} disabled={deleting} className="btn-danger text-xs py-1.5 px-3">

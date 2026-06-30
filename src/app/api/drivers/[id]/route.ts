@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import {
   requireSession,
-  requireAdmin,
   requireDriverWriteAccess,
   handleAccessError,
   logAudit,
@@ -79,11 +78,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 }
 
-// DELETE — reserve a l'admin
+// DELETE — admin, ou employe affecte a ce chauffeur
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await requireSession();
-    requireAdmin(session.user.role);
+    await requireDriverWriteAccess(session.user.id, session.user.role, params.id);
 
     await prisma.driver.delete({ where: { id: params.id } });
     await logAudit(session.user.id, 'DELETE_DRIVER', 'Driver', params.id);

@@ -54,7 +54,7 @@ export default function DriversPage() {
             </h1>
             <p className="text-xs text-gray-500 tracking-widest uppercase">Base d'identification de la flotte</p>
           </div>
-          {session?.user.role === 'ADMIN' && (
+          {session?.user && (
             <Link href="/drivers/new" className="btn-primary">+ Nouveau chauffeur</Link>
           )}
         </div>

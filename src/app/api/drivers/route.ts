@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireSession, requireAdmin, handleAccessError, logAudit } from '@/lib/access';
+import { requireSession, handleAccessError, logAudit } from '@/lib/access';
 import { driverCreateSchema } from '@/lib/validation';
 import { generateDriverCode } from '@/lib/driverCode';
 import { Prisma } from '@prisma/client';
@@ -67,11 +67,10 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST /api/drivers — creation reservee a l'admin
+// POST /api/drivers — admin ET employé peuvent créer un chauffeur
 export async function POST(req: NextRequest) {
   try {
     const session = await requireSession();
-    requireAdmin(session.user.role);
 
     const body = await req.json();
     const data = driverCreateSchema.parse(body);
