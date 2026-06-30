@@ -1,0 +1,10 @@
+node_modules
+.next
+.env
+.env*.local
+*.log
+.DS_Store
+.pgdata
+IMG_5706*.jpg
+*.tsbuildinfo
+next-env.d.ts

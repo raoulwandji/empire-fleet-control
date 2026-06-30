@@ -1,0 +1,566 @@
+'use client';
+
+import { useEffect, useState, useCallback } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useSession } from 'next-auth/react';
+import Navbar from '@/components/Navbar';
+import { formatFCFA, formatWeekRange } from '@/lib/business';
+import clsx from 'clsx';
+
+type DriverDetail = any;
+
+const TABS = ['Profil', 'Versements/Loyers', 'Caution', 'Suivi hebdo', 'Commentaires'] as const;
+
+export default function DriverDetailPage() {
+  const params = useParams<{ id: string }>();
+  const router = useRouter();
+  const { data: session } = useSession();
+  const [driver, setDriver] = useState<DriverDetail | null>(null);
+  const [tab, setTab] = useState<typeof TABS[number]>('Profil');
+  const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
+
+  const fetchDriver = useCallback(async () => {
+    const res = await fetch(`/api/drivers/${params.id}`);
+    if (res.ok) setDriver(await res.json());
+    setLoading(false);
+  }, [params.id]);
+
+  useEffect(() => { fetchDriver(); }, [fetchDriver]);
+
+  if (loading) return <Shell><p className="text-hud-cyan animate-pulse tracking-widest text-sm">⟳ CHARGEMENT...</p></Shell>;
+  if (!driver) return <Shell><p className="text-empire-rougeVif">Chauffeur introuvable.</p></Shell>;
+
+  const isAdmin = session?.user.role === 'ADMIN';
+  const isAssigned = driver.assignments.some((a: any) => a.employee.id === session?.user.id);
+  const canWrite = isAdmin || isAssigned;
+  const isCV = driver.contractType === 'CONDITION_VENTE';
+
+  async function handleDelete() {
+    if (!confirm(`Supprimer définitivement ${driver.fullName} (${driver.code}) ? Irréversible.`)) return;
+    setDeleting(true);
+    const res = await fetch(`/api/drivers/${driver.id}`, { method: 'DELETE' });
+    setDeleting(false);
+    if (!res.ok) { const d = await res.json(); alert(d.error ?? 'Erreur.'); return; }
+    router.push('/drivers');
+  }
+
+  return (
+    <Shell>
+      {/* En-tête */}
+      <div className="flex items-start justify-between mb-6 flex-wrap gap-3">
+        <div>
+          <h1 className="font-display font-bold text-2xl text-transparent bg-clip-text bg-gradient-to-r from-hud-cyan to-white tracking-widest">
+            {driver.fullName}
+          </h1>
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
+            <span className="font-mono text-hud-cyan text-sm">{driver.code}</span>
+            <span className="text-gray-600">·</span>
+            <span className="font-mono text-gray-400 text-sm">{driver.vehiclePlate}</span>
+            <span className="text-gray-600">·</span>
+            <span>{isCV ? <span className="badge-cv">Condition-Vente</span> : <span className="badge-loc">Location</span>}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {!canWrite && (
+            <span className="text-xs bg-yellow-900/30 text-yellow-400 border border-yellow-700/50 px-3 py-1 rounded-full">
+              Lecture seule — non affecté
+            </span>
+          )}
+          {isAdmin && (
+            <>
+              <Link href={`/drivers/${driver.id}/edit`} className="btn-secondary text-xs py-1.5 px-3">Modifier</Link>
+              <button onClick={handleDelete} disabled={deleting} className="btn-danger text-xs py-1.5 px-3">
+                {deleting ? '⟳ Suppression...' : 'Supprimer'}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
+        {isCV ? (
+          <>
+            <StatCard label="Montant fixé" value={formatFCFA(Number(driver.totalPriceFixed ?? 0))} />
+            <StatCard label="Total versé" value={formatFCFA(driver.summary.totalPaid)} accent />
+            <StatCard label="Pénalités appliquées" value={formatFCFA(driver.summary.appliedPenalties)} />
+            <StatCard label="Pénalités en attente" value={formatFCFA(driver.summary.pendingPenalties)} danger={driver.summary.pendingPenalties > 0} />
+            <StatCard label="Reste à payer" value={formatFCFA(driver.summary.resteAPayer)} highlight />
+          </>
+        ) : (
+          <>
+            <StatCard label="Caution référence" value={formatFCFA(Number(driver.cautionReference ?? 0))} />
+            <StatCard label="Solde caution" value={formatFCFA(driver.summary.cautionBalance)} accent
+              danger={driver.cautionMinThreshold != null && driver.summary.cautionBalance < Number(driver.cautionMinThreshold)} />
+            <StatCard label="Seuil minimal" value={formatFCFA(Number(driver.cautionMinThreshold ?? 0))} />
+            <StatCard label="Total loyers" value={formatFCFA(driver.summary.totalPaid)} />
+            <StatCard label="Pénalités en attente" value={formatFCFA(driver.summary.pendingPenalties)} danger={driver.summary.pendingPenalties > 0} />
+          </>
+        )}
+      </div>
+
+      {/* Onglets */}
+      <div className="flex gap-1 mb-6 border-b border-hud-line overflow-x-auto">
+        {TABS.filter((t) => t !== 'Caution' || !isCV).map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={clsx(
+              'px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition-all duration-150',
+              tab === t
+                ? 'border-hud-cyan text-hud-cyan'
+                : 'border-transparent text-gray-500 hover:text-gray-300'
+            )}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'Profil' && <ProfileTab driver={driver} />}
+      {tab === 'Versements/Loyers' && <PaymentsTab driver={driver} canWrite={canWrite} onChange={fetchDriver} />}
+      {tab === 'Caution' && !isCV && <CautionTab driver={driver} canWrite={canWrite} onChange={fetchDriver} />}
+      {tab === 'Suivi hebdo' && <WeeklyTab driver={driver} canWrite={canWrite} onChange={fetchDriver} />}
+      {tab === 'Commentaires' && <CommentsTab driver={driver} canWrite={canWrite} onChange={fetchDriver} />}
+    </Shell>
+  );
+}
+
+function Shell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="min-h-screen">
+      <Navbar />
+      <div className="p-6 max-w-5xl mx-auto">{children}</div>
+    </div>
+  );
+}
+
+function StatCard({ label, value, highlight, accent, danger }: { label: string; value: string; highlight?: boolean; accent?: boolean; danger?: boolean }) {
+  return (
+    <div className={clsx('stat-card', danger ? 'border-empire-rouge/50 bg-empire-rouge/5' : highlight ? 'border-hud-cyan/40' : '')}>
+      <div className="stat-label">{label}</div>
+      <div className={clsx(danger ? 'stat-value-danger' : accent || highlight ? 'stat-value-accent' : 'stat-value')}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function ProfileTab({ driver }: { driver: DriverDetail }) {
+  return (
+    <div className="card p-5 grid grid-cols-2 gap-4 text-sm">
+      {[
+        ['Téléphone', driver.phone], ['Localisation', driver.location],
+        ['N° de permis', driver.licenseNumber], ['Propriétaire', driver.ownerName],
+        ['Tél. propriétaire', driver.ownerPhone], ['Localisation propriétaire', driver.ownerLocation],
+        ['Garant', driver.guarantorName], ['Tél. garant', driver.guarantorPhone],
+        ['Couleur véhicule', driver.vehicleColor],
+        ['Mise en service', driver.vehicleInService ? new Date(driver.vehicleInService).toLocaleDateString('fr-FR') : null],
+        ['Affecté à', driver.assignments.map((a: any) => a.employee.fullName).join(', ') || null],
+      ].map(([lbl, val]) => (
+        <div key={lbl as string}>
+          <div className="hud-label">{lbl as string}</div>
+          <div className="text-gray-300">{(val as string) || '—'}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PaymentsTab({ driver, canWrite, onChange }: { driver: DriverDetail; canWrite: boolean; onChange: () => void }) {
+  const [date, setDate] = useState('');
+  const [amount, setAmount] = useState('');
+  const [paymentMode, setPaymentMode] = useState('ESPECES');
+  const [comment, setComment] = useState('');
+  const [error, setError] = useState('');
+  const [exportFrom, setExportFrom] = useState('');
+  const [exportTo, setExportTo] = useState('');
+  const label = driver.contractType === 'CONDITION_VENTE' ? 'Versement' : 'Loyer';
+
+  function buildExportUrl(format: 'pdf' | 'excel') {
+    const p = new URLSearchParams({ driverId: driver.id, format });
+    if (exportFrom) p.set('from', exportFrom);
+    if (exportTo) p.set('to', exportTo);
+    return `/api/payments/export?${p.toString()}`;
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault(); setError('');
+    const res = await fetch('/api/payments', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ driverId: driver.id, date, amount: Number(amount), paymentMode, comment: comment || undefined }) });
+    if (!res.ok) { setError((await res.json()).error ?? 'Erreur.'); return; }
+    setDate(''); setAmount(''); setComment(''); onChange();
+  }
+
+  return (
+    <div className="space-y-4">
+      {canWrite && (
+        <form onSubmit={handleSubmit} className="card p-4 flex flex-wrap gap-3 items-end">
+          <div>
+            <label className="hud-label">Date</label>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required className="form-input w-auto" />
+          </div>
+          <div>
+            <label className="hud-label">Montant (FCFA)</label>
+            <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} required placeholder="Ex: 15000" className="form-input w-36" />
+          </div>
+          <div>
+            <label className="hud-label">Mode de paiement</label>
+            <select value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)} className="form-select w-40">
+              <option value="ESPECES">Espèces</option>
+              <option value="MOBILE_MONEY">Mobile Money</option>
+              <option value="VIREMENT">Virement</option>
+              <option value="AUTRE">Autre</option>
+            </select>
+          </div>
+          <div className="flex-1 min-w-[160px]">
+            <label className="hud-label">Commentaire</label>
+            <input value={comment} onChange={(e) => setComment(e.target.value)} className="form-input w-full" placeholder="Commentaire optionnel..." />
+          </div>
+          <button type="submit" className="btn-primary">+ Ajouter {label.toLowerCase()}</button>
+          {error && <p className="text-xs text-empire-rougeVif w-full">{error}</p>}
+        </form>
+      )}
+
+      <div className="card p-3 flex flex-wrap gap-3 items-end">
+        <div>
+          <label className="hud-label">Du</label>
+          <input type="date" value={exportFrom} onChange={(e) => setExportFrom(e.target.value)} className="hud-input w-auto" />
+        </div>
+        <div>
+          <label className="hud-label">Au</label>
+          <input type="date" value={exportTo} onChange={(e) => setExportTo(e.target.value)} className="hud-input w-auto" />
+        </div>
+        <a href={buildExportUrl('excel')} className="btn-secondary text-xs py-1.5">Excel</a>
+        <a href={buildExportUrl('pdf')} className="btn-secondary text-xs py-1.5">PDF</a>
+      </div>
+
+      <div className="card overflow-x-auto">
+        <table className="hud-table">
+          <thead><tr><th>Date</th><th>Montant</th><th>Mode</th><th>Commentaire</th><th>Saisi par</th></tr></thead>
+          <tbody>
+            {driver.payments.length === 0 ? (
+              <tr><td colSpan={5} className="text-center text-gray-600 py-6 italic">Aucun versement enregistré.</td></tr>
+            ) : driver.payments.map((p: any) => (
+              <tr key={p.id}>
+                <td className="whitespace-nowrap">
+                  {new Date(p.date).toLocaleDateString('fr-FR')}
+                  {p.isUnusualDay && <span className="badge-warn ml-2">Jour inhabituel</span>}
+                </td>
+                <td className="font-display text-hud-green font-bold">{formatFCFA(Number(p.amount))}</td>
+                <td className="text-gray-400 text-xs">{p.paymentMode}</td>
+                <td className="text-gray-400">{p.comment || '—'}</td>
+                <td className="text-gray-600 text-xs">{p.enteredBy?.fullName ?? '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+const CAUTION_TYPES = [
+  { value: 'RECHARGE_VOLONTAIRE', label: 'Recharge volontaire' },
+  { value: 'DEDUCTION_PANNE', label: 'Déduction panne' },
+  { value: 'DEDUCTION_SANCTION', label: 'Déduction sanction' },
+  { value: 'RETRAIT', label: 'Retrait' },
+];
+
+function CautionTab({ driver, canWrite, onChange }: { driver: DriverDetail; canWrite: boolean; onChange: () => void }) {
+  const [date, setDate] = useState('');
+  const [type, setType] = useState('RECHARGE_VOLONTAIRE');
+  const [amount, setAmount] = useState('');
+  const [reason, setReason] = useState('');
+  const [error, setError] = useState('');
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault(); setError('');
+    const res = await fetch('/api/caution', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ driverId: driver.id, date, type, amount: Number(amount), reason: reason || undefined }) });
+    if (!res.ok) { setError((await res.json()).error ?? 'Erreur.'); return; }
+    setDate(''); setAmount(''); setReason(''); onChange();
+  }
+
+  return (
+    <div className="space-y-4">
+      {canWrite && (
+        <form onSubmit={handleSubmit} className="card p-4 flex flex-wrap gap-3 items-end">
+          <div>
+            <label className="hud-label">Date</label>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required className="form-input w-auto" />
+          </div>
+          <div>
+            <label className="hud-label">Type de mouvement</label>
+            <select value={type} onChange={(e) => setType(e.target.value)} className="form-select w-44">
+              {CAUTION_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="hud-label">Montant (FCFA)</label>
+            <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} required placeholder="Ex: 50000" className="form-input w-36" />
+          </div>
+          <div className="flex-1 min-w-[160px]">
+            <label className="hud-label">Motif</label>
+            <input value={reason} onChange={(e) => setReason(e.target.value)} className="form-input w-full" placeholder="Motif du mouvement..." />
+          </div>
+          <button type="submit" className="btn-primary">Enregistrer</button>
+          {error && <p className="text-xs text-empire-rougeVif w-full">{error}</p>}
+        </form>
+      )}
+
+      <div className="card overflow-x-auto">
+        <table className="hud-table">
+          <thead><tr><th>Date</th><th>Type</th><th>Montant</th><th>Solde résultant</th><th>Motif</th><th>Saisi par</th></tr></thead>
+          <tbody>
+            {driver.cautionMovements.length === 0 ? (
+              <tr><td colSpan={6} className="text-center text-gray-600 py-6 italic">Aucun mouvement de caution.</td></tr>
+            ) : driver.cautionMovements.map((m: any) => (
+              <tr key={m.id}>
+                <td>{new Date(m.date).toLocaleDateString('fr-FR')}</td>
+                <td className="text-xs text-gray-400">{m.type}</td>
+                <td className={clsx('font-display font-bold', Number(m.amount) < 0 ? 'text-empire-rougeVif' : 'text-hud-green')}>
+                  {Number(m.amount) > 0 ? '+' : ''}{formatFCFA(Number(m.amount))}
+                </td>
+                <td className="text-hud-cyan font-mono text-xs">{formatFCFA(Number(m.resultBalance))}</td>
+                <td className="text-gray-400">{m.reason || '—'}</td>
+                <td className="text-gray-600 text-xs">{m.enteredBy?.fullName ?? '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function WeeklyTab({ driver, canWrite, onChange }: { driver: DriverDetail; canWrite: boolean; onChange: () => void }) {
+  const [weekStartDate, setWeekStartDate] = useState('');
+  const [hoursWorked, setHoursWorked] = useState('');
+  const [ridesCompleted, setRidesCompleted] = useState('');
+  const [error, setError] = useState('');
+  const [exportFrom, setExportFrom] = useState('');
+  const [exportTo, setExportTo] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editHours, setEditHours] = useState('');
+  const [editRides, setEditRides] = useState('');
+  const [editError, setEditError] = useState('');
+
+  function buildExportUrl(format: 'pdf' | 'excel') {
+    const p = new URLSearchParams({ driverId: driver.id, format });
+    if (exportFrom) p.set('from', exportFrom);
+    if (exportTo) p.set('to', exportTo);
+    return `/api/weekly/export?${p.toString()}`;
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault(); setError('');
+    const res = await fetch('/api/weekly', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ driverId: driver.id, weekStartDate, hoursWorked: Number(hoursWorked), ridesCompleted: Number(ridesCompleted) }) });
+    if (!res.ok) { setError((await res.json()).error ?? 'Erreur.'); return; }
+    setWeekStartDate(''); setHoursWorked(''); setRidesCompleted(''); onChange();
+  }
+
+  async function applyPenalty(id: string) {
+    if (!confirm('Appliquer cette pénalité ? Action définitive.')) return;
+    const res = await fetch(`/api/weekly/${id}/apply-penalty`, { method: 'POST' });
+    if (!res.ok) { alert((await res.json()).error ?? 'Erreur.'); return; }
+    onChange();
+  }
+
+  async function saveEdit(id: string) {
+    setEditError('');
+    const res = await fetch(`/api/weekly/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hoursWorked: Number(editHours), ridesCompleted: Number(editRides) }) });
+    if (!res.ok) { setEditError((await res.json()).error ?? 'Erreur.'); return; }
+    setEditingId(null); onChange();
+  }
+
+  async function deleteTracking(id: string) {
+    if (!confirm('Supprimer cette saisie ?')) return;
+    const res = await fetch(`/api/weekly/${id}`, { method: 'DELETE' });
+    if (!res.ok) { alert((await res.json()).error ?? 'Erreur.'); return; }
+    onChange();
+  }
+
+  return (
+    <div className="space-y-4">
+      {canWrite && (
+        <form onSubmit={handleSubmit} className="card p-4 flex flex-wrap gap-3 items-end">
+          <div>
+            <label className="hud-label">Semaine (lundi)</label>
+            <input type="date" value={weekStartDate} onChange={(e) => setWeekStartDate(e.target.value)} required className="form-input w-auto" />
+          </div>
+          <div>
+            <label className="hud-label">Heures réalisées</label>
+            <input type="number" step="0.5" value={hoursWorked} onChange={(e) => setHoursWorked(e.target.value)} required placeholder="Ex: 48.5" className="form-input w-28" />
+          </div>
+          <div>
+            <label className="hud-label">Courses réalisées</label>
+            <input type="number" value={ridesCompleted} onChange={(e) => setRidesCompleted(e.target.value)} required placeholder="Ex: 82" className="form-input w-28" />
+          </div>
+          <button type="submit" className="btn-primary">Enregistrer la semaine</button>
+          <span className="text-xs text-gray-500 w-full">
+            Objectif : <span className="text-hud-cyan">{driver.weeklyHourTarget} h/sem</span> · Taux pénalité : <span className="text-empire-rougeVif">{formatFCFA(Number(driver.hourlyPenaltyRate))}/h</span>
+          </span>
+          {error && <p className="text-xs text-empire-rougeVif">{error}</p>}
+        </form>
+      )}
+
+      <div className="card p-3 flex flex-wrap gap-3 items-end">
+        <div>
+          <label className="hud-label">Du (semaine)</label>
+          <input type="date" value={exportFrom} onChange={(e) => setExportFrom(e.target.value)} className="hud-input w-auto" />
+        </div>
+        <div>
+          <label className="hud-label">Au (semaine)</label>
+          <input type="date" value={exportTo} onChange={(e) => setExportTo(e.target.value)} className="hud-input w-auto" />
+        </div>
+        <a href={buildExportUrl('excel')} className="btn-secondary text-xs py-1.5">Excel</a>
+        <a href={buildExportUrl('pdf')} className="btn-secondary text-xs py-1.5">PDF</a>
+      </div>
+
+      {/* Table saisies */}
+      <div className="card overflow-x-auto">
+        <table className="hud-table">
+          <thead><tr><th>Semaine</th><th>Heures</th><th>Courses</th><th>Versements semaine</th>{canWrite && <th>Modifier la saisie</th>}</tr></thead>
+          <tbody>
+            {driver.weeklyTrackings.length === 0 ? (
+              <tr><td colSpan={5} className="text-center text-gray-600 py-6 italic">Aucune saisie.</td></tr>
+            ) : driver.weeklyTrackings.map((w: any) => {
+              const isEditing = editingId === w.id;
+
+              // Calcul du total versé sur cette semaine précise
+              const wStart = new Date(w.weekStartDate);
+              const wEnd = new Date(wStart);
+              wEnd.setDate(wEnd.getDate() + 7);
+              const weekTotal = driver.payments
+                .filter((p: any) => {
+                  const d = new Date(p.date);
+                  return d >= wStart && d < wEnd;
+                })
+                .reduce((sum: number, p: any) => sum + Number(p.amount), 0);
+
+              return (
+                <tr key={w.id}>
+                  <td className="whitespace-nowrap font-mono text-xs">{formatWeekRange(w.weekStartDate)}</td>
+                  <td>
+                    {isEditing
+                      ? <input type="number" step="0.5" value={editHours} onChange={(e) => setEditHours(e.target.value)} className="form-input w-24" />
+                      : <span className={clsx('font-mono', Number(w.hoursWorked) >= w.hourTarget ? 'text-hud-green' : 'text-yellow-400')}>{Number(w.hoursWorked)}/{w.hourTarget}h</span>
+                    }
+                  </td>
+                  <td>
+                    {isEditing
+                      ? <input type="number" value={editRides} onChange={(e) => setEditRides(e.target.value)} className="form-input w-24" />
+                      : <span className="text-hud-cyan font-bold">{w.ridesCompleted}</span>
+                    }
+                  </td>
+                  <td>
+                    <span className={clsx('font-display font-bold text-sm', weekTotal > 0 ? 'text-hud-green' : 'text-gray-600')}>
+                      {weekTotal > 0 ? formatFCFA(weekTotal) : '—'}
+                    </span>
+                  </td>
+                  {canWrite && (
+                    <td>
+                      {w.penaltyApplied
+                        ? <span className="text-xs text-gray-600">Verrouillé</span>
+                        : isEditing
+                          ? <div className="flex gap-2 items-center">
+                              <button onClick={() => saveEdit(w.id)} className="btn-primary text-xs py-0.5 px-2">OK</button>
+                              <button onClick={() => setEditingId(null)} className="btn-secondary text-xs py-0.5 px-2">Annuler</button>
+                              {editError && <span className="text-xs text-empire-rougeVif">{editError}</span>}
+                            </div>
+                          : <div className="flex gap-2">
+                              <button onClick={() => { setEditingId(w.id); setEditHours(String(Number(w.hoursWorked))); setEditRides(String(w.ridesCompleted)); setEditError(''); }} className="btn-secondary text-xs py-0.5 px-2">Modifier</button>
+                              <button onClick={() => deleteTracking(w.id)} className="btn-danger text-xs py-0.5 px-2">Supprimer</button>
+                            </div>
+                      }
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Section Sanction */}
+      <div className="card overflow-x-auto">
+        <div className="px-4 pt-3 pb-1 flex items-center gap-2">
+          <div className="w-1 h-4 rounded-full bg-empire-rougeVif shadow-neon-red" />
+          <span className="font-display text-xs text-empire-rougeVif uppercase tracking-widest font-bold">Section Sanction</span>
+        </div>
+        <table className="hud-table">
+          <thead><tr><th>Semaine</th><th>Pénalité calculée</th><th>Statut</th>{canWrite && <th>Action</th>}</tr></thead>
+          <tbody>
+            {driver.weeklyTrackings.map((w: any) => (
+              <tr key={w.id}>
+                <td className="whitespace-nowrap font-mono text-xs">{formatWeekRange(w.weekStartDate)}</td>
+                <td className={clsx('font-display font-bold', Number(w.computedPenalty) > 0 ? 'text-empire-rougeVif' : 'text-gray-600')}>
+                  {Number(w.computedPenalty) > 0 ? formatFCFA(Number(w.computedPenalty)) : '—'}
+                </td>
+                <td>
+                  {w.penaltyApplied
+                    ? <span className="badge-loc">Appliquée</span>
+                    : Number(w.computedPenalty) > 0
+                      ? <span className="text-xs px-2 py-0.5 rounded-full bg-orange-900/60 text-orange-300 border border-orange-700/50 animate-pulse">En attente</span>
+                      : <span className="text-gray-600 text-xs">—</span>
+                  }
+                </td>
+                {canWrite && (
+                  <td>
+                    {!w.penaltyApplied && Number(w.computedPenalty) > 0 && (
+                      <button onClick={() => applyPenalty(w.id)} className="btn-danger text-xs py-0.5 px-3">Appliquer</button>
+                    )}
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function CommentsTab({ driver, canWrite, onChange }: { driver: DriverDetail; canWrite: boolean; onChange: () => void }) {
+  const [text, setText] = useState('');
+  const [error, setError] = useState('');
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault(); setError('');
+    const res = await fetch('/api/comments', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ driverId: driver.id, text }) });
+    if (!res.ok) { setError((await res.json()).error ?? 'Erreur.'); return; }
+    setText(''); onChange();
+  }
+
+  return (
+    <div className="space-y-3">
+      {canWrite && (
+        <form onSubmit={handleSubmit} className="card p-4 flex gap-3 items-end">
+          <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Écrire un commentaire interne..." className="form-input flex-1" required />
+          <button type="submit" className="btn-primary">Publier</button>
+          {error && <p className="text-xs text-empire-rougeVif">{error}</p>}
+        </form>
+      )}
+      <div className="space-y-2">
+        {driver.comments.length === 0 ? (
+          <div className="card p-4 text-center text-gray-600 italic text-sm">Aucun commentaire.</div>
+        ) : driver.comments.map((c: any) => (
+          <div key={c.id} className="card p-4 text-sm">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-hud-cyan text-xs font-semibold">{c.author.fullName}</span>
+              <span className="text-gray-600 text-xs">·</span>
+              <span className="text-gray-500 text-xs">{new Date(c.date).toLocaleString('fr-FR')}</span>
+            </div>
+            <div className="text-gray-300">{c.text}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

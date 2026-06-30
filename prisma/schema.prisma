@@ -1,0 +1,217 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  EMPLOYEE
+}
+
+enum ContractType {
+  CONDITION_VENTE
+  LOCATION
+}
+
+enum CautionMovementType {
+  DEPOT_INITIAL
+  RECHARGE_VOLONTAIRE
+  DEDUCTION_PANNE
+  DEDUCTION_SANCTION
+  RETRAIT
+}
+
+enum PaymentMode {
+  ESPECES
+  MOBILE_MONEY
+  VIREMENT
+  AUTRE
+}
+
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  fullName     String
+  role         Role
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  assignments      Assignment[]
+  paymentsEntered  Payment[]            @relation("PaymentEnteredBy")
+  cautionEntered   CautionMovement[]    @relation("CautionEnteredBy")
+  weeklyEntered    WeeklyTracking[]     @relation("WeeklyEnteredBy")
+  commentsAuthored Comment[]            @relation("CommentAuthor")
+  auditLogs        AuditLog[]
+  pendingDriversEntered PendingDriver[] @relation("PendingDriverEnteredBy")
+
+  @@map("users")
+}
+
+// Chauffeurs en attente d'affectation de véhicule : ont déjà versé une caution/avance
+// mais n'ont pas encore de véhicule (donc pas encore dans la table Driver).
+model PendingDriver {
+  id           String       @id @default(cuid())
+  fullName     String
+  phone        String
+  location     String?
+  licenseNumber String?
+  contractType ContractType
+  cautionPaid  Decimal      @default(0) @db.Decimal(14, 2)
+  comment      String?
+  enteredById  String
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  enteredBy User @relation("PendingDriverEnteredBy", fields: [enteredById], references: [id])
+
+  @@map("pending_drivers")
+}
+
+model Driver {
+  id               String       @id @default(cuid())
+  code             String       @unique // CH-001 / LOC-001
+  fullName         String
+  phone            String
+  location         String?
+  licenseNumber    String?
+  contractType     ContractType
+
+  ownerName        String
+  ownerPhone       String
+  ownerLocation    String?
+
+  guarantorName    String?
+  guarantorPhone   String?
+
+  vehicleBrand     String
+  vehicleModel     String
+  vehiclePlate     String
+  vehicleColor     String?
+  vehicleInService DateTime?
+
+  // Condition-Vente specifics
+  totalPriceFixed  Decimal?     @db.Decimal(14, 2)
+
+  // Location specifics
+  cautionReference Decimal?     @db.Decimal(14, 2)
+  cautionMinThreshold Decimal?  @db.Decimal(14, 2)
+
+  hourlyPenaltyRate Decimal     @default(0) @db.Decimal(14, 2)
+  weeklyHourTarget  Int         @default(55)
+
+  active           Boolean      @default(true)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  assignments      Assignment[]
+  payments         Payment[]
+  cautionMovements CautionMovement[]
+  weeklyTrackings  WeeklyTracking[]
+  comments         Comment[]
+
+  @@map("drivers")
+}
+
+model Assignment {
+  id         String   @id @default(cuid())
+  employeeId String
+  driverId   String
+  createdAt  DateTime @default(now())
+
+  employee User   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  driver   Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, driverId])
+  @@map("assignments")
+}
+
+// Versements (Condition-Vente) et Loyers (Location) — meme table, distingue par driver.contractType
+model Payment {
+  id            String      @id @default(cuid())
+  driverId      String
+  date          DateTime
+  amount        Decimal     @db.Decimal(14, 2)
+  paymentMode   PaymentMode @default(ESPECES)
+  comment       String?
+  isUnusualDay  Boolean     @default(false) // mardi/dimanche
+  enteredById   String
+  createdAt     DateTime    @default(now())
+
+  driver    Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  enteredBy User   @relation("PaymentEnteredBy", fields: [enteredById], references: [id])
+
+  @@map("payments")
+}
+
+model CautionMovement {
+  id            String              @id @default(cuid())
+  driverId      String
+  date          DateTime
+  type          CautionMovementType
+  amount        Decimal             @db.Decimal(14, 2) // peut etre negatif (deduction) ou positif
+  reason        String?
+  resultBalance Decimal             @db.Decimal(14, 2) // solde apres ce mouvement
+  enteredById   String
+  createdAt     DateTime            @default(now())
+
+  driver    Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  enteredBy User   @relation("CautionEnteredBy", fields: [enteredById], references: [id])
+
+  @@map("caution_movements")
+}
+
+model WeeklyTracking {
+  id               String   @id @default(cuid())
+  driverId         String
+  weekStartDate    DateTime // lundi de la semaine concernee
+  hoursWorked      Decimal  @db.Decimal(6, 2)
+  ridesCompleted   Int
+  hourTarget       Int      // copie de driver.weeklyHourTarget au moment de la saisie
+  penaltyRateUsed  Decimal  @db.Decimal(14, 2) // copie de driver.hourlyPenaltyRate
+  computedPenalty  Decimal  @db.Decimal(14, 2) // (hourTarget - hoursWorked) * penaltyRateUsed si positif, sinon 0
+  penaltyApplied   Boolean  @default(false)
+  penaltyAppliedAt DateTime?
+  enteredById      String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  driver    Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  enteredBy User   @relation("WeeklyEnteredBy", fields: [enteredById], references: [id])
+
+  @@unique([driverId, weekStartDate])
+  @@map("weekly_trackings")
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  driverId  String
+  date      DateTime @default(now())
+  text      String
+  authorId  String
+  createdAt DateTime @default(now())
+
+  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  author User   @relation("CommentAuthor", fields: [authorId], references: [id])
+
+  @@map("comments")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String   // e.g. "CREATE_PAYMENT", "UPDATE_DRIVER", "APPLY_PENALTY"
+  entity    String   // e.g. "Driver", "Payment"
+  entityId  String?
+  details   Json?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
