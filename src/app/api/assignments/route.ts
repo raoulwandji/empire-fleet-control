@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireSession, requireAdmin, handleAccessError, logAudit } from '@/lib/access';
+import { requireSession, requireAdminOrManager, handleAccessError, logAudit } from '@/lib/access';
 import { assignmentCreateSchema } from '@/lib/validation';
 
 // GET /api/assignments — reserve a l'admin (vue de gestion complete)
 export async function GET() {
   try {
     const session = await requireSession();
-    requireAdmin(session.user.role);
+    requireAdminOrManager(session.user.role);
 
     const assignments = await prisma.assignment.findMany({
       include: {
@@ -27,7 +27,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const session = await requireSession();
-    requireAdmin(session.user.role);
+    requireAdminOrManager(session.user.role);
 
     const body = await req.json();
     const data = assignmentCreateSchema.parse(body);

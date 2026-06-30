@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
-import { requireSession, requireAdmin, handleAccessError, logAudit } from '@/lib/access';
+import { requireSession, requireAdminOrManager, handleAccessError, logAudit } from '@/lib/access';
 import { userCreateSchema } from '@/lib/validation';
 
-// GET /api/users — reserve a l'admin
+// GET /api/users — admin + manager
 export async function GET() {
   try {
     const session = await requireSession();
-    requireAdmin(session.user.role);
+    requireAdminOrManager(session.user.role);
 
     const users = await prisma.user.findMany({
       select: { id: true, username: true, fullName: true, role: true, active: true, createdAt: true },
@@ -21,14 +21,19 @@ export async function GET() {
   }
 }
 
-// POST /api/users — creation de compte, reserve a l'admin
+// POST /api/users — admin + manager (manager ne peut pas créer de compte ADMIN)
 export async function POST(req: NextRequest) {
   try {
     const session = await requireSession();
-    requireAdmin(session.user.role);
+    requireAdminOrManager(session.user.role);
 
     const body = await req.json();
     const data = userCreateSchema.parse(body);
+
+    // Un gestionnaire ne peut pas créer de compte administrateur
+    if (session.user.role === 'MANAGER' && data.role === 'ADMIN') {
+      return NextResponse.json({ error: 'Un gestionnaire ne peut pas créer un compte administrateur.' }, { status: 403 });
+    }
 
     const existing = await prisma.user.findUnique({ where: { username: data.username } });
     if (existing) {

@@ -83,7 +83,7 @@ export const userCreateSchema = z.object({
   username: z.string().min(3),
   password: z.string().min(6),
   fullName: z.string().min(2),
-  role: z.enum(['ADMIN', 'EMPLOYEE']),
+  role: z.enum(['ADMIN', 'MANAGER', 'EMPLOYEE']),
 });
 
 export const assignmentCreateSchema = z.object({

@@ -63,11 +63,13 @@ export default function AssignmentsPage() {
     fetchAll();
   }
 
-  if (session && session.user.role !== 'ADMIN') {
+  const isAdminOrManager = session?.user.role === 'ADMIN' || session?.user.role === 'MANAGER';
+
+  if (session && !isAdminOrManager) {
     return (
       <div>
         <Navbar />
-        <div className="p-6">Accès réservé aux administrateurs.</div>
+        <div className="p-6">Accès réservé aux administrateurs et gestionnaires.</div>
       </div>
     );
   }

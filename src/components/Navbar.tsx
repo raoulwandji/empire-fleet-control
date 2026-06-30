@@ -10,13 +10,21 @@ const links = [
   { href: '/dashboard', label: 'Tableau de bord' },
   { href: '/drivers', label: 'Chauffeurs' },
   { href: '/pending-drivers', label: 'En attente' },
-  { href: '/users', label: 'Utilisateurs', adminOnly: true },
-  { href: '/assignments', label: 'Affectations', adminOnly: true },
+  { href: '/users', label: 'Utilisateurs', managerOnly: true },
+  { href: '/assignments', label: 'Affectations', managerOnly: true },
 ];
+
+function roleLabel(role?: string) {
+  if (role === 'ADMIN') return 'Admin';
+  if (role === 'MANAGER') return 'Gestionnaire';
+  return 'Employé';
+}
 
 export default function Navbar() {
   const pathname = usePathname();
   const { data: session } = useSession();
+  const role = session?.user.role;
+  const isAdminOrManager = role === 'ADMIN' || role === 'MANAGER';
 
   return (
     <nav className="sticky top-0 z-50 bg-hud-panel/80 backdrop-blur-md border-b border-hud-cyan/20 px-4 py-3 flex items-center justify-between flex-wrap gap-2">
@@ -31,7 +39,7 @@ export default function Navbar() {
         </div>
         <div className="flex gap-1 flex-wrap text-sm font-medium">
           {links
-            .filter((l) => !l.adminOnly || session?.user.role === 'ADMIN')
+            .filter((l) => !l.managerOnly || isAdminOrManager)
             .map((l) => {
               const active = pathname?.startsWith(l.href);
               return (
@@ -54,8 +62,11 @@ export default function Navbar() {
       <div className="flex items-center gap-3 text-sm">
         <span className="text-gray-400">
           {session?.user.name}{' '}
-          <span className={clsx('font-semibold', session?.user.role === 'ADMIN' ? 'text-empire-rougeVif' : 'text-hud-cyan')}>
-            ({session?.user.role === 'ADMIN' ? 'Admin' : 'Employé'})
+          <span className={clsx(
+            'font-semibold',
+            role === 'ADMIN' ? 'text-empire-rougeVif' : role === 'MANAGER' ? 'text-yellow-400' : 'text-hud-cyan'
+          )}>
+            ({roleLabel(role)})
           </span>
         </span>
         <button onClick={() => signOut({ callbackUrl: '/login' })} className="btn-danger !px-3 !py-1.5">

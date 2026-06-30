@@ -1,24 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
-import { requireSession, requireAdmin, handleAccessError, logAudit } from '@/lib/access';
+import { requireSession, requireAdmin, requireAdminOrManager, handleAccessError, logAudit } from '@/lib/access';
 import { z } from 'zod';
 
 const updateSchema = z.object({
   fullName: z.string().min(2).optional(),
-  role: z.enum(['ADMIN', 'EMPLOYEE']).optional(),
+  role: z.enum(['ADMIN', 'MANAGER', 'EMPLOYEE']).optional(),
   active: z.boolean().optional(),
   password: z.string().min(6).optional(),
 });
 
-// PATCH /api/users/[id] — reserve a l'admin (activer/desactiver, changer role/mdp)
+// PATCH /api/users/[id] — admin + manager (manager ne peut pas changer le rôle)
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await requireSession();
-    requireAdmin(session.user.role);
+    requireAdminOrManager(session.user.role);
 
     const body = await req.json();
     const data = updateSchema.parse(body);
+
+    // Un gestionnaire ne peut pas modifier le rôle d'un autre utilisateur
+    if (session.user.role === 'MANAGER' && data.role !== undefined) {
+      return NextResponse.json({ error: 'Un gestionnaire ne peut pas modifier le rôle d\'un utilisateur.' }, { status: 403 });
+    }
 
     const updateData: Record<string, unknown> = { ...data };
     delete updateData.password;
@@ -40,7 +45,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 }
 
-// DELETE /api/users/[id] — reserve a l'admin
+// DELETE /api/users/[id] — ADMIN uniquement
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await requireSession();

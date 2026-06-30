@@ -14,7 +14,6 @@ export class AccessError extends Error {
 
 /**
  * Retourne la session ou lève une AccessError 401 si non authentifié.
- * A appeler en tout premier dans chaque handler d'API.
  */
 export async function requireSession() {
   const session = await getServerSession(authOptions);
@@ -25,7 +24,16 @@ export async function requireSession() {
 }
 
 /**
- * Lève une AccessError 403 si l'utilisateur n'est pas admin.
+ * Passe pour ADMIN et MANAGER. Bloque EMPLOYEE.
+ */
+export function requireAdminOrManager(role: Role) {
+  if (role !== 'ADMIN' && role !== 'MANAGER') {
+    throw new AccessError('Action réservée aux administrateurs et gestionnaires.', 403);
+  }
+}
+
+/**
+ * Passe uniquement pour ADMIN (pour les actions destructives sur les comptes).
  */
 export function requireAdmin(role: Role) {
   if (role !== 'ADMIN') {
@@ -35,15 +43,14 @@ export function requireAdmin(role: Role) {
 
 /**
  * Vérifie qu'un employé est affecté au chauffeur visé avant toute écriture.
- * Un admin passe toujours. Un employé non affecté est rejeté côté serveur,
- * quelle que soit l'UI — c'est le verrou réel demandé par le cahier des charges.
+ * ADMIN et MANAGER passent toujours.
  */
 export async function requireDriverWriteAccess(
   userId: string,
   role: Role,
   driverId: string
 ) {
-  if (role === 'ADMIN') return;
+  if (role === 'ADMIN' || role === 'MANAGER') return;
 
   const assignment = await prisma.assignment.findUnique({
     where: { employeeId_driverId: { employeeId: userId, driverId } },
