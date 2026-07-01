@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { requireAdminOrManager, handleAccessError } from '@/lib/access';
+import { requireAdminOrManager, requireSession, handleAccessError } from '@/lib/access';
 
 const commissionSchema = z.object({
   weekStart: z.string(), // ISO date du lundi
@@ -12,7 +12,8 @@ const commissionSchema = z.object({
 // POST /api/owners/[id]/commissions — enregistrer une commission
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const session = await requireAdminOrManager();
+    const session = await requireSession();
+    requireAdminOrManager(session.user.role);
     const body = commissionSchema.parse(await req.json());
 
     const commission = await prisma.ownerCommission.upsert({
@@ -40,7 +41,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 // DELETE /api/owners/[id]/commissions?weekStart=...
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    await requireAdminOrManager();
+    const session = await requireSession();
+    requireAdminOrManager(session.user.role);
     const weekStart = req.nextUrl.searchParams.get('weekStart');
     if (!weekStart) return NextResponse.json({ error: 'weekStart requis' }, { status: 400 });
 

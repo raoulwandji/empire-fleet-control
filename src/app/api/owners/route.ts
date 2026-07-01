@@ -26,7 +26,8 @@ const ownerSchema = z.object({
 // POST /api/owners — créer un propriétaire
 export async function POST(req: NextRequest) {
   try {
-    await requireAdminOrManager();
+    const session = await requireSession();
+    requireAdminOrManager(session.user.role);
     const body = ownerSchema.parse(await req.json());
     const owner = await prisma.owner.create({ data: body });
     return NextResponse.json(owner, { status: 201 });
