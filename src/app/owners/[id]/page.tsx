@@ -62,11 +62,12 @@ type EntryFormProps = {
   label: string;
   apiPath: string;
   currentWeekIso: string;
+  requireNote?: boolean;
   onSaved: () => void;
   onCancel: () => void;
 };
 
-function EntryForm({ label, apiPath, currentWeekIso, onSaved, onCancel }: EntryFormProps) {
+function EntryForm({ label, apiPath, currentWeekIso, requireNote = false, onSaved, onCancel }: EntryFormProps) {
   const [week, setWeek] = useState(currentWeekIso.slice(0, 10));
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
@@ -75,12 +76,13 @@ function EntryForm({ label, apiPath, currentWeekIso, onSaved, onCancel }: EntryF
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (requireNote && !note.trim()) { setError("L'objet du préfinancement est obligatoire."); return; }
     setSaving(true);
     setError('');
     const res = await fetch(apiPath, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ weekStart: week, amount: Number(amount), note: note || undefined }),
+      body: JSON.stringify({ weekStart: week, amount: Number(amount), note: note.trim() || undefined }),
     });
     if (!res.ok) { const d = await res.json(); setError(d.error ?? 'Erreur'); setSaving(false); return; }
     onSaved();
@@ -88,22 +90,37 @@ function EntryForm({ label, apiPath, currentWeekIso, onSaved, onCancel }: EntryF
 
   return (
     <div className="p-4 border-b border-hud-line bg-hud-panel2">
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
-        <div>
-          <label className="hud-label">Semaine (lundi)</label>
-          <input type="date" className="hud-input" value={week} onChange={(e) => setWeek(e.target.value)} required />
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="hud-label">Semaine (lundi)</label>
+            <input type="date" className="hud-input" value={week} onChange={(e) => setWeek(e.target.value)} required />
+          </div>
+          <div>
+            <label className="hud-label">Montant (FCFA) *</label>
+            <input type="number" min="1" step="1" className="hud-input" value={amount}
+              onChange={(e) => setAmount(e.target.value)} placeholder="Ex: 50000" required />
+          </div>
         </div>
         <div>
-          <label className="hud-label">Montant (FCFA) *</label>
-          <input type="number" min="1" step="1" className="hud-input" value={amount}
-            onChange={(e) => setAmount(e.target.value)} placeholder="Ex: 50000" required />
+          <label className="hud-label">
+            {requireNote ? 'Objet du préfinancement *' : 'Note (optionnel)'}
+          </label>
+          {requireNote ? (
+            <textarea
+              rows={3}
+              className="hud-input resize-none"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Décrivez l'objet et la raison de ce préfinancement…"
+              required
+            />
+          ) : (
+            <input className="hud-input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Remarque…" />
+          )}
         </div>
-        <div>
-          <label className="hud-label">Note (optionnel)</label>
-          <input className="hud-input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Remarque…" />
-        </div>
-        {error && <p className="col-span-3 text-empire-rougeVif text-sm">{error}</p>}
-        <div className="col-span-3 flex gap-2 justify-end">
+        {error && <p className="text-empire-rougeVif text-sm">{error}</p>}
+        <div className="flex gap-2 justify-end">
           <button type="button" onClick={onCancel} className="btn-secondary text-xs py-1.5 px-3">Annuler</button>
           <button type="submit" disabled={saving} className="btn-primary text-xs py-1.5 px-3">
             {saving ? 'Enregistrement...' : `Saisir ${label}`}
@@ -300,6 +317,7 @@ export default function OwnerDetailPage() {
               label="préfinancement"
               apiPath={`/api/owners/${id}/prefinancements`}
               currentWeekIso={currentWeekIso}
+              requireNote
               onSaved={() => { setShowPrefForm(false); reload(); }}
               onCancel={() => setShowPrefForm(false)}
             />
@@ -307,6 +325,7 @@ export default function OwnerDetailPage() {
           <HistoryTable
             rows={owner.prefinancements}
             colorClass="text-yellow-400"
+            showNoteProminent
             onDelete={isAdminOrManager ? (ws) => handleDelete(`/api/owners/${id}/prefinancements`, ws, 'préfinancement') : undefined}
           />
         </div>
@@ -317,14 +336,51 @@ export default function OwnerDetailPage() {
 
 type HistoryRow = { id: string; weekStart: string; amount: string; note: string | null; enteredBy: { fullName: string } };
 
-function HistoryTable({ rows, colorClass, onDelete }: {
+function HistoryTable({ rows, colorClass, showNoteProminent = false, onDelete }: {
   rows: HistoryRow[];
   colorClass: string;
+  showNoteProminent?: boolean;
   onDelete?: (weekStart: string) => void;
 }) {
   if (rows.length === 0) {
     return <p className="p-6 text-gray-500 text-sm text-center">Aucun enregistrement.</p>;
   }
+
+  if (showNoteProminent) {
+    return (
+      <div className="divide-y divide-hud-line">
+        {rows.map((r) => (
+          <div key={r.id} className="p-4 space-y-2">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-xs text-gray-500">{fmtDate(r.weekStart)}</span>
+                <span className={`font-display font-bold text-base ${colorClass}`}>
+                  {Number(r.amount).toLocaleString('fr-FR')} FCFA
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-gray-600">par {r.enteredBy.fullName}</span>
+                {onDelete && (
+                  <button onClick={() => onDelete(r.weekStart)} className="text-xs text-red-500 hover:text-empire-rougeVif transition-colors">
+                    Supprimer
+                  </button>
+                )}
+              </div>
+            </div>
+            {r.note ? (
+              <div className="bg-hud-panel2 border border-yellow-700/30 rounded-lg px-3 py-2">
+                <span className="text-[10px] text-yellow-400 uppercase tracking-widest font-semibold block mb-1">Objet du préfinancement</span>
+                <p className="text-sm text-gray-300 leading-relaxed">{r.note}</p>
+              </div>
+            ) : (
+              <p className="text-xs text-gray-600 italic">Aucun objet renseigné.</p>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <table className="hud-table">
       <thead>
