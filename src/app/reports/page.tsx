@@ -57,7 +57,7 @@ export default function ReportsPage() {
         router.replace('/drivers');
         return;
       }
-      fetch('/api/owners').then((r) => r.json()).then((d) => setOwners(d.owners ?? []));
+      fetch('/api/owners').then((r) => r.json()).then((d) => setOwners(Array.isArray(d) ? d : (d.owners ?? [])));
     }
   }, [status, session, router]);
 
