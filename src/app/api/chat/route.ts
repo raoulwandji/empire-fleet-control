@@ -5,11 +5,25 @@ import { requireSession, handleAccessError } from '@/lib/access';
 
 const PAGE_SIZE = 50;
 
-// GET /api/chat?cursor=<id> — derniers messages (50), du plus récent au plus ancien
+// GET /api/chat?cursor=<id>&since=<isoDate> — messages récents
+// ?since= retourne uniquement le count des messages plus récents que cette date
 export async function GET(req: NextRequest) {
   try {
-    await requireSession();
+    const session = await requireSession();
     const cursor = req.nextUrl.searchParams.get('cursor');
+    const since = req.nextUrl.searchParams.get('since');
+
+    // Mode "count non lus" — utilisé par la navbar
+    if (since) {
+      const sinceDate = new Date(since);
+      const count = await prisma.chatMessage.count({
+        where: {
+          createdAt: { gt: sinceDate },
+          authorId: { not: session.user.id }, // ne pas compter ses propres messages
+        },
+      });
+      return NextResponse.json({ count });
+    }
 
     const messages = await prisma.chatMessage.findMany({
       take: PAGE_SIZE,

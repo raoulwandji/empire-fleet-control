@@ -77,12 +77,20 @@ export default function ChatPage() {
     }
   }, []);
 
+  // Marquer comme lu dès l'ouverture et à chaque nouveau message
+  const markRead = useCallback(() => {
+    if (session?.user.id) {
+      localStorage.setItem(`chat_last_read_${session.user.id}`, new Date().toISOString());
+    }
+  }, [session?.user.id]);
+
   // Chargement initial + polling toutes les 3s
   useEffect(() => {
     fetchMessages();
-    pollingRef.current = setInterval(fetchMessages, 3000);
+    markRead();
+    pollingRef.current = setInterval(() => { fetchMessages(); markRead(); }, 3000);
     return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
-  }, [fetchMessages]);
+  }, [fetchMessages, markRead]);
 
   // Liste des utilisateurs pour @mentions
   useEffect(() => {

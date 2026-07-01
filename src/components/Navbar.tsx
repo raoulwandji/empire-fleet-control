@@ -32,8 +32,39 @@ export default function Navbar() {
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const btnRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Clé localStorage par utilisateur pour la date de dernière lecture
+  const storageKey = session?.user.id ? `chat_last_read_${session.user.id}` : null;
+
+  // Marque le chat comme lu quand on est sur la page /chat
+  useEffect(() => {
+    if (pathname?.startsWith('/chat') && storageKey) {
+      localStorage.setItem(storageKey, new Date().toISOString());
+      setUnreadCount(0);
+    }
+  }, [pathname, storageKey]);
+
+  // Polling des messages non lus toutes les 15s
+  useEffect(() => {
+    if (!session?.user || !storageKey) return;
+    function checkUnread() {
+      const lastRead = localStorage.getItem(storageKey!) ?? new Date(0).toISOString();
+      fetch(`/api/chat?since=${encodeURIComponent(lastRead)}`)
+        .then((r) => r.ok ? r.json() : { count: 0 })
+        .then((data) => {
+          if (!pathname?.startsWith('/chat')) {
+            setUnreadCount(data.count ?? 0);
+          }
+        });
+    }
+    checkUnread();
+    const id = setInterval(checkUnread, 15_000);
+    return () => clearInterval(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user, storageKey]);
 
   useEffect(() => {
     if (!session?.user) return;
@@ -102,12 +133,12 @@ export default function Navbar() {
           })}
       </div>
 
-      {/* Bouton Chat — toujours visible */}
+      {/* Bouton Chat — toujours visible avec badge non lus */}
       <button
         onClick={() => router.push('/chat')}
         title="Chat"
         className={clsx(
-          'shrink-0 w-8 h-8 rounded-full flex items-center justify-center border transition-all',
+          'shrink-0 relative w-8 h-8 rounded-full flex items-center justify-center border transition-all',
           pathname?.startsWith('/chat')
             ? 'border-hud-cyan/60 bg-hud-cyan/15 text-hud-cyan shadow-neon'
             : 'border-hud-line text-gray-400 hover:text-hud-cyan hover:border-hud-cyan/40'
@@ -116,6 +147,11 @@ export default function Navbar() {
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
           <path fillRule="evenodd" d="M2 5a2 2 0 012-2h12a2 2 0 012 2v7a2 2 0 01-2 2H6l-4 4V5z" clipRule="evenodd" />
         </svg>
+        {unreadCount > 0 && (
+          <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 rounded-full bg-empire-rougeVif text-white text-[10px] font-bold flex items-center justify-center leading-none">
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
+        )}
       </button>
 
       {/* Bouton profil — toujours visible à droite */}
