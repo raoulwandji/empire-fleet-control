@@ -24,12 +24,21 @@ type PrefRow = {
   driverCode: string | null;
 };
 
+type CommRow = {
+  id: string;
+  amount: number;
+  note: string | null;
+};
+
 type WeekRow = {
   weekStart: string;
   perDriver: DriverRow[];
   weekTotal: number;
   prefinancements: PrefRow[];
   totalPrefs: number;
+  commission: CommRow | null;
+  totalComm: number;
+  netWeek: number;
 };
 
 type ReportData = {
@@ -38,6 +47,8 @@ type ReportData = {
   rows: WeekRow[];
   grandTotal: number;
   grandTotalPrefs: number;
+  grandTotalComm: number;
+  grandNet: number;
 };
 
 function fmtAmount(v: number) {
@@ -149,26 +160,32 @@ export default function ReportsPage() {
         {/* Résultats */}
         {report && (
           <div className="space-y-4">
-            {/* En-tête propriétaire — 3 totaux */}
+            {/* En-tête propriétaire — 4 totaux */}
             <div className="card p-4">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
-                <div>
-                  <p className="text-lg font-bold text-hud-cyan">{report.owner.fullName}</p>
-                  <p className="text-sm text-gray-400">{report.owner.phone}{report.owner.location ? ` — ${report.owner.location}` : ''}</p>
-                  <p className="text-xs text-gray-500 mt-1">{report.drivers.length} véhicule(s) · {report.rows.length} semaine(s)</p>
-                </div>
-                <div className="flex gap-4 sm:gap-6 text-right">
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 justify-between">
                   <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-widest">Versements bruts</p>
-                    <p className="text-xl font-bold text-green-400">{fmtAmount(report.grandTotal)}</p>
+                    <p className="text-lg font-bold text-hud-cyan">{report.owner.fullName}</p>
+                    <p className="text-sm text-gray-400">{report.owner.phone}{report.owner.location ? ` — ${report.owner.location}` : ''}</p>
+                    <p className="text-xs text-gray-500 mt-1">{report.drivers.length} véhicule(s) · {report.rows.length} semaine(s)</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-widest">Préfinancements</p>
-                    <p className="text-xl font-bold text-yellow-400">− {fmtAmount(report.grandTotalPrefs)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-widest">Net à verser</p>
-                    <p className="text-xl font-bold text-hud-cyan">{fmtAmount(report.grandTotal - report.grandTotalPrefs)}</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-right">
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase tracking-widest">Versements bruts</p>
+                      <p className="text-lg font-bold text-green-400">{fmtAmount(report.grandTotal)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase tracking-widest">Commissions</p>
+                      <p className="text-lg font-bold text-empire-rougeVif">− {fmtAmount(report.grandTotalComm)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase tracking-widest">Préfinancements</p>
+                      <p className="text-lg font-bold text-yellow-400">− {fmtAmount(report.grandTotalPrefs)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase tracking-widest">Net à verser</p>
+                      <p className="text-lg font-bold text-hud-cyan">{fmtAmount(report.grandNet)}</p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -177,92 +194,110 @@ export default function ReportsPage() {
             {report.rows.length === 0 ? (
               <div className="card p-6 text-center text-gray-500">Aucun versement sur cette période.</div>
             ) : (
-              report.rows.map((row) => {
-                const net = row.weekTotal - row.totalPrefs;
-                return (
-                  <div key={row.weekStart} className="card overflow-hidden">
-                    {/* En-tête semaine */}
-                    <div className="flex items-center justify-between px-4 py-3 bg-hud-cyan/5 border-b border-hud-line">
-                      <span className="text-sm font-semibold text-hud-cyan">{fmtWeek(row.weekStart)}</span>
-                      <div className="flex items-center gap-4 text-sm">
-                        <span className="text-gray-400">Brut : <span className="font-bold text-green-400">{fmtAmount(row.weekTotal)}</span></span>
-                        {row.totalPrefs > 0 && (
-                          <span className="text-gray-400">Préfin. : <span className="font-bold text-yellow-400">− {fmtAmount(row.totalPrefs)}</span></span>
-                        )}
-                        <span className="text-gray-400">Net : <span className={`font-bold ${net >= 0 ? 'text-hud-cyan' : 'text-empire-rougeVif'}`}>{fmtAmount(net)}</span></span>
+              report.rows.map((row) => (
+                <div key={row.weekStart} className="card overflow-hidden">
+                  {/* En-tête semaine */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 bg-hud-cyan/5 border-b border-hud-line">
+                    <span className="text-sm font-semibold text-hud-cyan">{fmtWeek(row.weekStart)}</span>
+                    <div className="flex flex-wrap items-center gap-4 text-xs">
+                      <span className="text-gray-400">Brut : <span className="font-bold text-green-400">{fmtAmount(row.weekTotal)}</span></span>
+                      {row.totalComm > 0 && (
+                        <span className="text-gray-400">Commission : <span className="font-bold text-empire-rougeVif">− {fmtAmount(row.totalComm)}</span></span>
+                      )}
+                      {row.totalPrefs > 0 && (
+                        <span className="text-gray-400">Préfin. : <span className="font-bold text-yellow-400">− {fmtAmount(row.totalPrefs)}</span></span>
+                      )}
+                      <span className="text-gray-400">Net : <span className={`font-bold ${row.netWeek >= 0 ? 'text-hud-cyan' : 'text-empire-rougeVif'}`}>{fmtAmount(row.netWeek)}</span></span>
+                    </div>
+                  </div>
+
+                  {/* Versements par véhicule */}
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-xs text-gray-500 uppercase tracking-wider border-b border-hud-line bg-hud-panel2/50">
+                        <th className="px-4 py-2 text-left">Véhicule</th>
+                        <th className="px-4 py-2 text-left">Chauffeur</th>
+                        <th className="px-4 py-2 text-right">Versement</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {row.perDriver.filter((d) => d.total > 0).map((d) => (
+                        <tr key={d.driverId} className="border-b border-hud-line/40 hover:bg-hud-cyan/3 transition-colors">
+                          <td className="px-4 py-2 font-mono text-hud-cyan font-semibold">{d.vehiclePlate}</td>
+                          <td className="px-4 py-2 text-gray-300">
+                            {d.fullName}
+                            <span className="ml-2 text-xs text-gray-500">({d.code})</span>
+                          </td>
+                          <td className="px-4 py-2 text-right font-semibold text-green-400">{fmtAmount(d.total)}</td>
+                        </tr>
+                      ))}
+                      {row.perDriver.every((d) => d.total === 0) && (
+                        <tr className="border-b border-hud-line/20">
+                          <td colSpan={3} className="px-4 py-2 text-xs text-gray-600 italic">Aucun versement cette semaine</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+
+                  {/* Commission Empire */}
+                  {row.commission && (
+                    <div className="border-t border-empire-rougeVif/20 bg-empire-rougeVif/3">
+                      <div className="px-4 py-2 flex items-center gap-2 border-b border-empire-rougeVif/10">
+                        <span className="text-xs font-semibold text-empire-rougeVif uppercase tracking-widest">Commission Empire</span>
+                      </div>
+                      <div className="flex items-center justify-between px-4 py-2.5">
+                        <span className="text-xs text-gray-400 italic">{row.commission.note ?? 'Commission hebdomadaire'}</span>
+                        <span className="font-bold text-empire-rougeVif text-sm">− {fmtAmount(row.commission.amount)}</span>
                       </div>
                     </div>
+                  )}
 
-                    {/* Versements par véhicule */}
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="text-xs text-gray-500 uppercase tracking-wider border-b border-hud-line bg-hud-panel2/50">
-                          <th className="px-4 py-2 text-left">Véhicule</th>
-                          <th className="px-4 py-2 text-left">Chauffeur</th>
-                          <th className="px-4 py-2 text-right">Versement</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {row.perDriver.filter((d) => d.total > 0).map((d) => (
-                          <tr key={d.driverId} className="border-b border-hud-line/40 hover:bg-hud-cyan/3 transition-colors">
-                            <td className="px-4 py-2 font-mono text-hud-cyan font-semibold">{d.vehiclePlate}</td>
-                            <td className="px-4 py-2 text-gray-300">
-                              {d.fullName}
-                              <span className="ml-2 text-xs text-gray-500">({d.code})</span>
-                            </td>
-                            <td className="px-4 py-2 text-right font-semibold text-green-400">{fmtAmount(d.total)}</td>
-                          </tr>
-                        ))}
-                        {row.perDriver.every((d) => d.total === 0) && (
-                          <tr className="border-b border-hud-line/20">
-                            <td colSpan={3} className="px-4 py-2 text-xs text-gray-600 italic">Aucun versement cette semaine</td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-
-                    {/* Préfinancements de la semaine */}
-                    {row.prefinancements.length > 0 && (
-                      <div className="border-t border-yellow-400/20 bg-yellow-400/3">
-                        <div className="px-4 py-2 flex items-center gap-2">
-                          <span className="text-xs font-semibold text-yellow-400 uppercase tracking-widest">Préfinancements Empire</span>
-                          <span className="text-xs text-yellow-400/70">({row.prefinancements.length})</span>
-                        </div>
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="text-xs text-gray-500 uppercase tracking-wider border-b border-yellow-400/10 bg-yellow-400/5">
-                              <th className="px-4 py-1.5 text-left">Véhicule concerné</th>
-                              <th className="px-4 py-1.5 text-left">Objet</th>
-                              <th className="px-4 py-1.5 text-right">Montant</th>
+                  {/* Préfinancements */}
+                  {row.prefinancements.length > 0 && (
+                    <div className="border-t border-yellow-400/20 bg-yellow-400/3">
+                      <div className="px-4 py-2 flex items-center gap-2 border-b border-yellow-400/10">
+                        <span className="text-xs font-semibold text-yellow-400 uppercase tracking-widest">Préfinancements Empire</span>
+                        <span className="text-xs text-yellow-400/70">({row.prefinancements.length})</span>
+                      </div>
+                      <table className="w-full text-sm">
+                        <tbody>
+                          {row.prefinancements.map((pf) => (
+                            <tr key={pf.id} className="border-b border-yellow-400/10">
+                              <td className="px-4 py-2 font-mono text-yellow-300 text-xs">
+                                {pf.vehiclePlate ? (
+                                  <>{pf.vehiclePlate} <span className="text-gray-500">— {pf.driverName} ({pf.driverCode})</span></>
+                                ) : (
+                                  <span className="text-gray-500 italic">Non spécifié</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-2 text-gray-400 text-xs italic">{pf.note ?? '—'}</td>
+                              <td className="px-4 py-2 text-right font-semibold text-yellow-400">− {fmtAmount(pf.amount)}</td>
                             </tr>
-                          </thead>
-                          <tbody>
-                            {row.prefinancements.map((pf) => (
-                              <tr key={pf.id} className="border-b border-yellow-400/10">
-                                <td className="px-4 py-2 font-mono text-yellow-300 text-xs">
-                                  {pf.vehiclePlate ? (
-                                    <>{pf.vehiclePlate} <span className="text-gray-500">— {pf.driverName} ({pf.driverCode})</span></>
-                                  ) : (
-                                    <span className="text-gray-500 italic">Non spécifié</span>
-                                  )}
-                                </td>
-                                <td className="px-4 py-2 text-gray-400 text-xs italic">{pf.note ?? '—'}</td>
-                                <td className="px-4 py-2 text-right font-semibold text-yellow-400">− {fmtAmount(pf.amount)}</td>
-                              </tr>
-                            ))}
-                          </tbody>
+                          ))}
+                        </tbody>
+                        {row.prefinancements.length > 1 && (
                           <tfoot>
                             <tr className="bg-yellow-400/5">
-                              <td colSpan={2} className="px-4 py-2 text-xs text-yellow-400/70 text-right font-semibold uppercase tracking-wider">Total préfinancements semaine</td>
+                              <td colSpan={2} className="px-4 py-2 text-xs text-yellow-400/70 text-right font-semibold uppercase tracking-wider">Total préfinancements</td>
                               <td className="px-4 py-2 text-right font-bold text-yellow-400">− {fmtAmount(row.totalPrefs)}</td>
                             </tr>
                           </tfoot>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-                );
-              })
+                        )}
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Net à verser semaine */}
+                  {(row.totalComm > 0 || row.totalPrefs > 0) && (
+                    <div className="border-t border-hud-line bg-hud-panel2/60 px-4 py-3 flex items-center justify-between">
+                      <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Net à verser au propriétaire</span>
+                      <span className={`text-base font-bold ${row.netWeek >= 0 ? 'text-hud-cyan' : 'text-empire-rougeVif'}`}>
+                        {fmtAmount(row.netWeek)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ))
             )}
           </div>
         )}

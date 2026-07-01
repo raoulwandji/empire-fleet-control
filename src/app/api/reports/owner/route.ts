@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
       dateFilter.lt = toDate;
     }
 
-    const [payments, prefinancements] = await Promise.all([
+    const [payments, prefinancements, commissions] = await Promise.all([
       prisma.payment.findMany({
         where: {
           driver: { ownerId },
@@ -54,6 +54,14 @@ export async function GET(req: NextRequest) {
           note: true,
           driver: { select: { vehiclePlate: true, fullName: true, code: true } },
         },
+        orderBy: { weekStart: 'asc' },
+      }),
+      prisma.ownerCommission.findMany({
+        where: {
+          ownerId,
+          ...(Object.keys(dateFilter).length > 0 ? { weekStart: dateFilter } : {}),
+        },
+        select: { id: true, amount: true, weekStart: true, note: true },
         orderBy: { weekStart: 'asc' },
       }),
     ]);
@@ -84,8 +92,18 @@ export async function GET(req: NextRequest) {
       byWeekPref.get(wk)!.push(pf);
     }
 
-    // Merge all weeks from both payments and préfinancements
-    const allWeeks = [...new Set([...byWeekDriver.keys(), ...byWeekPref.keys()])].sort();
+    // weekKey -> commission (unique par semaine)
+    const byWeekComm = new Map<string, typeof commissions[0]>();
+    for (const c of commissions) {
+      byWeekComm.set(c.weekStart.toISOString().slice(0, 10), c);
+    }
+
+    // Merge all weeks
+    const allWeeks = [...new Set([
+      ...byWeekDriver.keys(),
+      ...byWeekPref.keys(),
+      ...byWeekComm.keys(),
+    ])].sort();
 
     const rows = allWeeks.map((wk) => {
       const dMap = byWeekDriver.get(wk) ?? new Map<string, number>();
@@ -106,13 +124,19 @@ export async function GET(req: NextRequest) {
         driverCode: pf.driver?.code ?? null,
       }));
       const totalPrefs = weekPrefs.reduce((s, pf) => s + pf.amount, 0);
-      return { weekStart: wk, perDriver, weekTotal, prefinancements: weekPrefs, totalPrefs };
+      const comm = byWeekComm.get(wk);
+      const commission = comm ? { id: comm.id, amount: Number(comm.amount), note: comm.note } : null;
+      const totalComm = commission?.amount ?? 0;
+      const netWeek = weekTotal - totalPrefs - totalComm;
+      return { weekStart: wk, perDriver, weekTotal, prefinancements: weekPrefs, totalPrefs, commission, totalComm, netWeek };
     });
 
     const grandTotal = rows.reduce((s, r) => s + r.weekTotal, 0);
     const grandTotalPrefs = rows.reduce((s, r) => s + r.totalPrefs, 0);
+    const grandTotalComm = rows.reduce((s, r) => s + r.totalComm, 0);
+    const grandNet = grandTotal - grandTotalPrefs - grandTotalComm;
 
-    return NextResponse.json({ owner, drivers, rows, grandTotal, grandTotalPrefs });
+    return NextResponse.json({ owner, drivers, rows, grandTotal, grandTotalPrefs, grandTotalComm, grandNet });
   } catch (err) {
     return handleAccessError(err);
   }
