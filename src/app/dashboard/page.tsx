@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import { formatFCFA } from '@/lib/business';
@@ -12,11 +14,20 @@ type SanctionRow = { driverId: string; code: string; fullName: string; contractT
 type WeeklyStatusRow = { driverId: string; code: string; fullName: string; contractType: string; expectedDays: number; daysPaid: number; totalAmount: number; status: 'complete' | 'partial' | 'none' };
 
 export default function DashboardPage() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const [mode, setMode] = useState<'total' | 'week'>('total');
   const [weekStartDate, setWeekStartDate] = useState('');
   const [conditionVente, setConditionVente] = useState<Ranked[]>([]);
   const [location, setLocation] = useState<Ranked[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Rediriger les employés
+  useEffect(() => {
+    if (status === 'authenticated' && session?.user.role === 'EMPLOYEE') {
+      router.replace('/drivers');
+    }
+  }, [status, session, router]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);

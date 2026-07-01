@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import { useSession } from 'next-auth/react';
@@ -162,6 +162,7 @@ function EntryForm({ label, apiPath, currentWeekIso, requireNote = false, driver
 export default function OwnerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { data: session } = useSession();
+  const router = useRouter();
   const isAdminOrManager = session?.user.role === 'ADMIN' || session?.user.role === 'MANAGER';
 
   const [owner, setOwner] = useState<Owner | null>(null);
@@ -169,6 +170,7 @@ export default function OwnerDetailPage() {
   const [loading, setLoading] = useState(true);
   const [showCommForm, setShowCommForm] = useState(false);
   const [showPrefForm, setShowPrefForm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   function reload() {
     setLoading(true);
@@ -189,6 +191,18 @@ export default function OwnerDetailPage() {
     if (!confirm('Supprimer ce préfinancement ?')) return;
     await fetch(`/api/owners/${id}/prefinancements?id=${encodeURIComponent(prefId)}`, { method: 'DELETE' });
     reload();
+  }
+
+  async function handleDeleteOwner() {
+    if (!confirm(`Supprimer définitivement le propriétaire "${owner?.fullName}" ? Cette action est irréversible.`)) return;
+    setDeleting(true);
+    const res = await fetch(`/api/owners/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      router.replace('/owners');
+    } else {
+      alert('Erreur lors de la suppression.');
+      setDeleting(false);
+    }
   }
 
   if (loading) return (
@@ -224,12 +238,23 @@ export default function OwnerDetailPage() {
       <div className="p-6 max-w-5xl mx-auto space-y-6">
 
         {/* En-tête */}
-        <div>
-          <Link href="/owners" className="text-xs text-gray-500 hover:text-hud-cyan transition-colors">← Propriétaires</Link>
-          <h1 className="font-display font-bold text-2xl text-transparent bg-clip-text bg-gradient-to-r from-hud-cyan to-white tracking-widest mt-1">
-            {owner.fullName.toUpperCase()}
-          </h1>
-          <p className="text-xs text-gray-500 mt-0.5">{owner.phone}{owner.location ? ` — ${owner.location}` : ''}</p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <Link href="/owners" className="text-xs text-gray-500 hover:text-hud-cyan transition-colors">← Propriétaires</Link>
+            <h1 className="font-display font-bold text-2xl text-transparent bg-clip-text bg-gradient-to-r from-hud-cyan to-white tracking-widest mt-1">
+              {owner.fullName.toUpperCase()}
+            </h1>
+            <p className="text-xs text-gray-500 mt-0.5">{owner.phone}{owner.location ? ` — ${owner.location}` : ''}</p>
+          </div>
+          {isAdminOrManager && (
+            <button
+              onClick={handleDeleteOwner}
+              disabled={deleting}
+              className="btn-danger text-xs px-3 py-1.5 shrink-0"
+            >
+              {deleting ? 'Suppression...' : 'Supprimer le propriétaire'}
+            </button>
+          )}
         </div>
 
         {/* Résumé semaine — 5 indicateurs */}

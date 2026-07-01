@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { requireSession, handleAccessError } from '@/lib/access';
+import { requireSession, requireAdminOrManager, handleAccessError } from '@/lib/access';
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -21,11 +22,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         drivers: {
           where: { active: true },
           select: {
-            id: true,
-            code: true,
-            fullName: true,
-            contractType: true,
-            vehiclePlate: true,
+            id: true, code: true, fullName: true, contractType: true, vehiclePlate: true,
             payments: {
               where: { date: { gte: weekStart, lt: weekEnd } },
               select: { amount: true, date: true },
@@ -50,6 +47,35 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     });
 
     return NextResponse.json({ owner, weekStart: weekStart.toISOString() });
+  } catch (err) {
+    return handleAccessError(err);
+  }
+}
+
+const ownerUpdateSchema = z.object({
+  fullName: z.string().min(2).optional(),
+  phone: z.string().min(6).optional(),
+  location: z.string().optional(),
+});
+
+export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const session = await requireSession();
+    requireAdminOrManager(session.user.role);
+    const body = ownerUpdateSchema.parse(await req.json());
+    const owner = await prisma.owner.update({ where: { id: params.id }, data: body });
+    return NextResponse.json(owner);
+  } catch (err) {
+    return handleAccessError(err);
+  }
+}
+
+export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const session = await requireSession();
+    requireAdminOrManager(session.user.role);
+    await prisma.owner.delete({ where: { id: params.id } });
+    return NextResponse.json({ ok: true });
   } catch (err) {
     return handleAccessError(err);
   }
