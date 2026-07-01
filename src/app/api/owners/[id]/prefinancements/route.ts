@@ -6,7 +6,8 @@ import { requireAdminOrManager, requireSession, handleAccessError } from '@/lib/
 const schema = z.object({
   weekStart: z.string(),
   amount: z.number().positive(),
-  note: z.string().optional(),
+  note: z.string().min(1, 'L\'objet du préfinancement est requis.'),
+  driverId: z.string().optional(),
 });
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
@@ -15,19 +16,18 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     requireAdminOrManager(session.user.role);
     const body = schema.parse(await req.json());
 
-    const pref = await prisma.ownerPrefinancement.upsert({
-      where: { ownerId_weekStart: { ownerId: params.id, weekStart: new Date(body.weekStart) } },
-      create: {
+    const pref = await prisma.ownerPrefinancement.create({
+      data: {
         ownerId: params.id,
+        driverId: body.driverId || undefined,
         weekStart: new Date(body.weekStart),
         amount: body.amount,
         note: body.note,
         enteredById: session.user.id,
       },
-      update: {
-        amount: body.amount,
-        note: body.note,
-        enteredById: session.user.id,
+      include: {
+        driver: { select: { fullName: true, vehiclePlate: true, code: true } },
+        enteredBy: { select: { fullName: true } },
       },
     });
 
@@ -41,11 +41,11 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   try {
     const session = await requireSession();
     requireAdminOrManager(session.user.role);
-    const weekStart = req.nextUrl.searchParams.get('weekStart');
-    if (!weekStart) return NextResponse.json({ error: 'weekStart requis' }, { status: 400 });
+    const prefId = req.nextUrl.searchParams.get('id');
+    if (!prefId) return NextResponse.json({ error: 'id requis' }, { status: 400 });
 
     await prisma.ownerPrefinancement.deleteMany({
-      where: { ownerId: params.id, weekStart: new Date(weekStart) },
+      where: { id: prefId, ownerId: params.id },
     });
 
     return NextResponse.json({ ok: true });

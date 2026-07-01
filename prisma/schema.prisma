@@ -112,16 +112,17 @@ model OwnerCommission {
 model OwnerPrefinancement {
   id          String   @id @default(cuid())
   ownerId     String
+  driverId    String?  // véhicule concerné (optionnel)
   weekStart   DateTime // lundi de la semaine
   amount      Decimal  @db.Decimal(14, 2)
   note        String?
   enteredById String
   createdAt   DateTime @default(now())
 
-  owner     Owner @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  enteredBy User  @relation("OwnerPrefinancementEnteredBy", fields: [enteredById], references: [id])
+  owner     Owner   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  driver    Driver? @relation("DriverPrefinancements", fields: [driverId], references: [id], onDelete: SetNull)
+  enteredBy User    @relation("OwnerPrefinancementEnteredBy", fields: [enteredById], references: [id])
 
-  @@unique([ownerId, weekStart])
   @@map("owner_prefinancements")
 }
 
@@ -169,6 +170,7 @@ model Driver {
   cautionMovements CautionMovement[]
   weeklyTrackings  WeeklyTracking[]
   comments         Comment[]
+  prefinancements  OwnerPrefinancement[] @relation("DriverPrefinancements")
 
   @@map("drivers")
 }

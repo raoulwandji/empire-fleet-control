@@ -29,6 +29,7 @@ type Prefinancement = {
   amount: string;
   note: string | null;
   enteredBy: { fullName: string };
+  driver: { id: string; fullName: string; vehiclePlate: string; code: string } | null;
 };
 
 type Owner = {
@@ -58,19 +59,23 @@ function fmtAmount(v: string | number) {
   return Number(v).toLocaleString('fr-FR', { minimumFractionDigits: 0 });
 }
 
+type DriverOption = { id: string; fullName: string; vehiclePlate: string; code: string };
+
 type EntryFormProps = {
   label: string;
   apiPath: string;
   currentWeekIso: string;
   requireNote?: boolean;
+  drivers?: DriverOption[];
   onSaved: () => void;
   onCancel: () => void;
 };
 
-function EntryForm({ label, apiPath, currentWeekIso, requireNote = false, onSaved, onCancel }: EntryFormProps) {
+function EntryForm({ label, apiPath, currentWeekIso, requireNote = false, drivers, onSaved, onCancel }: EntryFormProps) {
   const [week, setWeek] = useState(currentWeekIso.slice(0, 10));
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
+  const [driverId, setDriverId] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -79,10 +84,12 @@ function EntryForm({ label, apiPath, currentWeekIso, requireNote = false, onSave
     if (requireNote && !note.trim()) { setError("L'objet du préfinancement est obligatoire."); return; }
     setSaving(true);
     setError('');
+    const body: Record<string, unknown> = { weekStart: week, amount: Number(amount), note: note.trim() || undefined };
+    if (driverId) body.driverId = driverId;
     const res = await fetch(apiPath, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ weekStart: week, amount: Number(amount), note: note.trim() || undefined }),
+      body: JSON.stringify(body),
     });
     if (!res.ok) { const d = await res.json(); setError(d.error ?? 'Erreur'); setSaving(false); return; }
     onSaved();
@@ -102,6 +109,27 @@ function EntryForm({ label, apiPath, currentWeekIso, requireNote = false, onSave
               onChange={(e) => setAmount(e.target.value)} placeholder="Ex: 50000" required />
           </div>
         </div>
+
+        {/* Sélection du véhicule (uniquement pour les préfinancements) */}
+        {drivers && drivers.length > 0 && (
+          <div>
+            <label className="hud-label">Véhicule préfinancé *</label>
+            <select
+              value={driverId}
+              onChange={(e) => setDriverId(e.target.value)}
+              className="hud-select w-full"
+              required
+            >
+              <option value="">— Sélectionner le véhicule concerné —</option>
+              {drivers.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.vehiclePlate} — {d.fullName} ({d.code})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <div>
           <label className="hud-label">
             {requireNote ? 'Objet du préfinancement *' : 'Note (optionnel)'}
@@ -151,9 +179,15 @@ export default function OwnerDetailPage() {
 
   useEffect(() => { reload(); }, [id]);
 
-  async function handleDelete(path: string, ws: string, label: string) {
-    if (!confirm(`Supprimer ce ${label} ?`)) return;
-    await fetch(`${path}?weekStart=${encodeURIComponent(ws)}`, { method: 'DELETE' });
+  async function handleDeleteComm(ws: string) {
+    if (!confirm('Supprimer cette commission ?')) return;
+    await fetch(`/api/owners/${id}/commissions?weekStart=${encodeURIComponent(ws)}`, { method: 'DELETE' });
+    reload();
+  }
+
+  async function handleDeletePref(prefId: string) {
+    if (!confirm('Supprimer ce préfinancement ?')) return;
+    await fetch(`/api/owners/${id}/prefinancements?id=${encodeURIComponent(prefId)}`, { method: 'DELETE' });
     reload();
   }
 
@@ -178,10 +212,10 @@ export default function OwnerDetailPage() {
   const currentWeekIso = weekStart ? weekStart.slice(0, 10) : getWeekStart().toISOString().slice(0, 10);
 
   const currentComm = owner.commissions.find((c) => c.weekStart.slice(0, 10) === currentWeekIso);
-  const currentPref = owner.prefinancements.find((p) => p.weekStart.slice(0, 10) === currentWeekIso);
-
   const commAmt = currentComm ? Number(currentComm.amount) : 0;
-  const prefAmt = currentPref ? Number(currentPref.amount) : 0;
+  const prefAmt = owner.prefinancements
+    .filter((p) => p.weekStart.slice(0, 10) === currentWeekIso)
+    .reduce((s, p) => s + Number(p.amount), 0);
   const netWeek = totalWeek - commAmt - prefAmt;
 
   return (
@@ -295,7 +329,7 @@ export default function OwnerDetailPage() {
           <HistoryTable
             rows={owner.commissions}
             colorClass="text-empire-rougeVif"
-            onDelete={isAdminOrManager ? (ws) => handleDelete(`/api/owners/${id}/commissions`, ws, 'commission') : undefined}
+            onDelete={isAdminOrManager ? (ws) => handleDeleteComm(ws) : undefined}
           />
         </div>
 
@@ -318,15 +352,14 @@ export default function OwnerDetailPage() {
               apiPath={`/api/owners/${id}/prefinancements`}
               currentWeekIso={currentWeekIso}
               requireNote
+              drivers={owner.drivers.map((d) => ({ id: d.id, fullName: d.fullName, vehiclePlate: d.vehiclePlate, code: d.code }))}
               onSaved={() => { setShowPrefForm(false); reload(); }}
               onCancel={() => setShowPrefForm(false)}
             />
           )}
-          <HistoryTable
+          <PrefHistoryTable
             rows={owner.prefinancements}
-            colorClass="text-yellow-400"
-            showNoteProminent
-            onDelete={isAdminOrManager ? (ws) => handleDelete(`/api/owners/${id}/prefinancements`, ws, 'préfinancement') : undefined}
+            onDelete={isAdminOrManager ? (prefId) => handleDeletePref(prefId) : undefined}
           />
         </div>
       </div>
@@ -334,53 +367,15 @@ export default function OwnerDetailPage() {
   );
 }
 
-type HistoryRow = { id: string; weekStart: string; amount: string; note: string | null; enteredBy: { fullName: string } };
+// Table historique commissions (simple)
+type CommRow = { id: string; weekStart: string; amount: string; note: string | null; enteredBy: { fullName: string } };
 
-function HistoryTable({ rows, colorClass, showNoteProminent = false, onDelete }: {
-  rows: HistoryRow[];
+function HistoryTable({ rows, colorClass, onDelete }: {
+  rows: CommRow[];
   colorClass: string;
-  showNoteProminent?: boolean;
   onDelete?: (weekStart: string) => void;
 }) {
-  if (rows.length === 0) {
-    return <p className="p-6 text-gray-500 text-sm text-center">Aucun enregistrement.</p>;
-  }
-
-  if (showNoteProminent) {
-    return (
-      <div className="divide-y divide-hud-line">
-        {rows.map((r) => (
-          <div key={r.id} className="p-4 space-y-2">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center gap-3">
-                <span className="font-mono text-xs text-gray-500">{fmtDate(r.weekStart)}</span>
-                <span className={`font-display font-bold text-base ${colorClass}`}>
-                  {Number(r.amount).toLocaleString('fr-FR')} FCFA
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-gray-600">par {r.enteredBy.fullName}</span>
-                {onDelete && (
-                  <button onClick={() => onDelete(r.weekStart)} className="text-xs text-red-500 hover:text-empire-rougeVif transition-colors">
-                    Supprimer
-                  </button>
-                )}
-              </div>
-            </div>
-            {r.note ? (
-              <div className="bg-hud-panel2 border border-yellow-700/30 rounded-lg px-3 py-2">
-                <span className="text-[10px] text-yellow-400 uppercase tracking-widest font-semibold block mb-1">Objet du préfinancement</span>
-                <p className="text-sm text-gray-300 leading-relaxed">{r.note}</p>
-              </div>
-            ) : (
-              <p className="text-xs text-gray-600 italic">Aucun objet renseigné.</p>
-            )}
-          </div>
-        ))}
-      </div>
-    );
-  }
-
+  if (rows.length === 0) return <p className="p-6 text-gray-500 text-sm text-center">Aucun enregistrement.</p>;
   return (
     <table className="hud-table">
       <thead>
@@ -401,14 +396,65 @@ function HistoryTable({ rows, colorClass, showNoteProminent = false, onDelete }:
             <td className="text-xs text-gray-500">{r.enteredBy.fullName}</td>
             {onDelete && (
               <td>
-                <button onClick={() => onDelete(r.weekStart)} className="text-xs text-red-500 hover:text-empire-rougeVif transition-colors">
-                  Supprimer
-                </button>
+                <button onClick={() => onDelete(r.weekStart)} className="text-xs text-red-500 hover:text-empire-rougeVif transition-colors">Supprimer</button>
               </td>
             )}
           </tr>
         ))}
       </tbody>
     </table>
+  );
+}
+
+// Cards historique préfinancements (avec véhicule + objet)
+function PrefHistoryTable({ rows, onDelete }: {
+  rows: Prefinancement[];
+  onDelete?: (id: string) => void;
+}) {
+  if (rows.length === 0) return <p className="p-6 text-gray-500 text-sm text-center">Aucun préfinancement enregistré.</p>;
+  return (
+    <div className="divide-y divide-hud-line">
+      {rows.map((r) => (
+        <div key={r.id} className="p-4 space-y-2">
+          <div className="flex items-start justify-between flex-wrap gap-2">
+            <div className="space-y-1">
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="font-mono text-xs text-gray-500">{fmtDate(r.weekStart)}</span>
+                <span className="font-display font-bold text-base text-yellow-400">
+                  {Number(r.amount).toLocaleString('fr-FR')} FCFA
+                </span>
+              </div>
+              {/* Véhicule concerné */}
+              {r.driver ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-hud-cyan uppercase tracking-widest font-semibold">Véhicule :</span>
+                  <Link href={`/drivers/${r.driver.id}`} className="neon-link text-xs font-mono">
+                    {r.driver.vehiclePlate}
+                  </Link>
+                  <span className="text-xs text-gray-400">— {r.driver.fullName} ({r.driver.code})</span>
+                </div>
+              ) : (
+                <span className="text-xs text-gray-600 italic">Véhicule non précisé</span>
+              )}
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <span className="text-xs text-gray-600">par {r.enteredBy.fullName}</span>
+              {onDelete && (
+                <button onClick={() => onDelete(r.id)} className="text-xs text-red-500 hover:text-empire-rougeVif transition-colors">
+                  Supprimer
+                </button>
+              )}
+            </div>
+          </div>
+          {/* Objet du préfinancement */}
+          {r.note && (
+            <div className="bg-hud-panel2 border border-yellow-700/30 rounded-lg px-3 py-2">
+              <span className="text-[10px] text-yellow-400 uppercase tracking-widest font-semibold block mb-1">Objet du préfinancement</span>
+              <p className="text-sm text-gray-300 leading-relaxed">{r.note}</p>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
   );
 }

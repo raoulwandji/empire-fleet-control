@@ -40,8 +40,11 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         },
         prefinancements: {
           orderBy: { weekStart: 'desc' },
-          take: 12,
-          include: { enteredBy: { select: { fullName: true } } },
+          take: 24,
+          include: {
+            enteredBy: { select: { fullName: true } },
+            driver: { select: { id: true, fullName: true, vehiclePlate: true, code: true } },
+          },
         },
       },
     });
