@@ -99,7 +99,7 @@ export default function Navbar() {
   }, [menuOpen]);
 
   return (
-    <nav className="sticky top-0 z-50 bg-hud-panel/80 backdrop-blur-md border-b border-hud-cyan/20 px-4 py-3 flex items-center gap-2">
+    <nav className="sticky top-0 z-50 bg-empire-rouge px-4 py-3 flex items-center gap-2 shadow-md">
       {/* Logo — toujours visible */}
       <div className="flex items-center gap-3 shrink-0">
         <div className="relative w-9 h-9 rounded-lg overflow-hidden ring-1 ring-hud-cyan/50 shadow-neon">
@@ -123,8 +123,8 @@ export default function Navbar() {
                 className={clsx(
                   'px-3 py-1.5 rounded-lg transition-all duration-150 border whitespace-nowrap shrink-0',
                   active
-                    ? 'border-hud-cyan/50 text-hud-cyan bg-hud-cyan/10 shadow-neon'
-                    : 'border-transparent text-gray-400 hover:text-gray-100 hover:border-hud-line'
+                    ? 'border-white/60 text-white bg-white/20 font-semibold'
+                    : 'border-transparent text-white/80 hover:text-white hover:bg-white/10'
                 )}
               >
                 {l.label}
@@ -140,8 +140,8 @@ export default function Navbar() {
         className={clsx(
           'shrink-0 relative w-8 h-8 rounded-full flex items-center justify-center border transition-all',
           pathname?.startsWith('/chat')
-            ? 'border-hud-cyan/60 bg-hud-cyan/15 text-hud-cyan shadow-neon'
-            : 'border-hud-line text-gray-400 hover:text-hud-cyan hover:border-hud-cyan/40'
+            ? 'border-white bg-white/20 text-white'
+            : 'border-white/40 text-white/80 hover:text-white hover:border-white'
         )}
       >
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
@@ -161,12 +161,9 @@ export default function Navbar() {
         className="flex items-center gap-2 shrink-0"
       >
         <AvatarUploader fullName={session?.user.name ?? '?'} avatarUrl={avatarUrl} size={32} />
-        <span className="text-gray-400 hidden md:inline whitespace-nowrap">
+        <span className="text-white/90 hidden md:inline whitespace-nowrap">
           {session?.user.name}{' '}
-          <span className={clsx(
-            'font-semibold',
-            role === 'ADMIN' ? 'text-empire-rougeVif' : role === 'MANAGER' ? 'text-yellow-400' : 'text-hud-cyan'
-          )}>
+          <span className="font-semibold text-white">
             ({roleLabel(role)})
           </span>
         </span>
@@ -177,9 +174,9 @@ export default function Navbar() {
         <div
           ref={dropdownRef}
           style={{ position: 'fixed', top: dropPos.top, right: dropPos.right }}
-          className="card p-4 w-64 z-50 space-y-3"
+          className="bg-white border border-red-100 rounded-xl shadow-lg p-4 w-64 z-50 space-y-3"
         >
-          <p className="text-xs text-gray-500 uppercase tracking-widest">Photo de profil</p>
+          <p className="text-xs text-empire-rouge font-semibold uppercase tracking-widest">Photo de profil</p>
           <AvatarUploader
             fullName={session?.user.name ?? '?'}
             avatarUrl={avatarUrl}

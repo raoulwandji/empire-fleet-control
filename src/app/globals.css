@@ -5,76 +5,79 @@
 /* ─── Reset ────────────────────────────────── */
 * { box-sizing: border-box; }
 
-/* ─── Inputs HUD par défaut (fond sombre) ─── */
+/* ─── Couleurs de base ────────────────────── */
+@layer base {
+  /* Surcharge des grays Tailwind pour fond clair */
+  .text-gray-100 { color: #111827 !important; }
+  .text-gray-200 { color: #1f2937 !important; }
+  .text-gray-300 { color: #374151 !important; }
+  .text-gray-400 { color: #4b5563 !important; }
+  .text-gray-500 { color: #6b7280 !important; }
+  .text-gray-600 { color: #6b7280 !important; }
+  .bg-white\/5   { background-color: #f9fafb !important; }
+  .bg-white\/10  { background-color: #f3f4f6 !important; }
+}
+
+/* ─── Inputs ─── */
 input:not(.form-input), textarea:not(.form-input), select:not(.form-select) {
-  background-color: #04060d;
-  color: #e5e7eb;
-  border-color: #1c2440;
+  background-color: #fff;
+  color: #111827;
+  border-color: #fecaca;
 }
 input:not(.form-input)::placeholder, textarea:not(.form-input)::placeholder {
-  color: #4b5563;
+  color: #9ca3af;
 }
 input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: invert(0.6) sepia(1) saturate(3) hue-rotate(160deg);
+  filter: none;
   cursor: pointer;
 }
-option { background-color: #0b1020; color: #e5e7eb; }
+option { background-color: #fff; color: #111827; }
 
-/* ─── Inputs saisie manuelle (fond blanc, texte noir foncé) ─── */
+/* ─── Inputs saisie manuelle ─── */
 .form-input, .form-select {
   background-color: #ffffff !important;
   color: #111827 !important;
-  border-color: #1c2440;
+  border-color: #fca5a5;
 }
-.form-input::placeholder {
-  color: #9ca3af !important;
-}
+.form-input::placeholder { color: #9ca3af !important; }
 .form-input:focus, .form-select:focus {
-  background-color: #f9fafb !important;
-  border-color: #22e8ff !important;
-  box-shadow: 0 0 0 2px rgba(34, 232, 255, 0.2) !important;
+  background-color: #fff !important;
+  border-color: #b3122a !important;
+  box-shadow: 0 0 0 2px rgba(179, 18, 42, 0.15) !important;
   outline: none;
 }
-.form-select option {
-  background-color: #ffffff;
-  color: #111827;
-}
+.form-select option { background-color: #fff; color: #111827; }
 
 body {
   font-family: var(--font-body), 'Segoe UI', sans-serif;
-  background-color: #04060d;
-  background-image:
-    linear-gradient(rgba(34,232,255,0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(34,232,255,0.04) 1px, transparent 1px);
-  background-size: 32px 32px;
+  background-color: #f9fafb;
+  color: #111827;
 }
 
-/* ─── HUD card (glassmorphism) ──────────────── */
+/* ─── Card ──────────────────────────────── */
 @layer components {
   .card {
-    @apply bg-hud-panel border border-hud-line rounded-xl shadow-glass backdrop-blur-sm;
+    @apply bg-white border border-red-100 rounded-xl shadow-glass;
   }
 
   .card-hover {
-    @apply card transition-all duration-200 hover:border-hud-cyan/40 hover:shadow-neon;
+    @apply card transition-all duration-200 hover:border-red-300 hover:shadow-neon;
   }
 
-  /* Inputs HUD — fond sombre (navigation, filtres, dashboard) */
   .hud-input {
-    @apply w-full bg-hud-bg border border-hud-line rounded-lg px-3 py-2 text-gray-100
-           text-sm focus:outline-none focus:border-hud-cyan focus:shadow-neon
-           transition-all duration-200 placeholder:text-gray-600;
+    @apply w-full bg-white border border-red-200 rounded-lg px-3 py-2 text-gray-800
+           text-sm focus:outline-none focus:border-empire-rouge focus:ring-2 focus:ring-empire-rouge/20
+           transition-all duration-200 placeholder:text-gray-400;
   }
 
   .hud-select {
     @apply hud-input appearance-none cursor-pointer;
   }
 
-  /* Inputs de saisie manuelle — fond blanc cassé, texte noir foncé très lisible */
   .form-input {
-    @apply w-full bg-white border-2 border-hud-line rounded-lg px-3 py-2
+    @apply w-full bg-white border-2 border-red-200 rounded-lg px-3 py-2
            text-gray-900 font-medium text-sm
-           focus:outline-none focus:border-hud-cyan focus:ring-2 focus:ring-hud-cyan/30
+           focus:outline-none focus:border-empire-rouge focus:ring-2 focus:ring-empire-rouge/20
            transition-all duration-200 placeholder:text-gray-400;
   }
 
@@ -82,103 +85,73 @@ body {
     @apply form-input appearance-none cursor-pointer;
   }
 
-  /* Bouton principal néon rouge */
+  /* Bouton principal rouge */
   .btn-primary {
     @apply bg-empire-rouge text-white font-semibold px-4 py-2 rounded-lg text-sm
-           shadow-neon-red hover:bg-empire-rougeVif hover:shadow-neon-red
+           hover:bg-empire-rougeVif shadow-sm
            transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed;
   }
 
-  /* Bouton secondaire verre */
+  /* Bouton secondaire */
   .btn-secondary {
-    @apply bg-transparent border border-hud-line text-gray-300 px-4 py-2 rounded-lg text-sm
-           hover:border-hud-cyan hover:text-hud-cyan transition-all duration-200;
+    @apply bg-white border border-red-200 text-gray-700 px-4 py-2 rounded-lg text-sm
+           hover:border-empire-rouge hover:text-empire-rouge transition-all duration-200;
   }
 
   /* Bouton danger */
   .btn-danger {
-    @apply bg-transparent border border-red-800 text-red-400 px-4 py-2 rounded-lg text-sm
-           hover:bg-red-950 hover:border-empire-rougeVif hover:text-empire-rougeVif
+    @apply bg-white border border-red-300 text-red-600 px-4 py-2 rounded-lg text-sm
+           hover:bg-red-50 hover:border-empire-rouge hover:text-empire-rouge
            transition-all duration-200;
   }
 
-  /* En-tête de section néon */
   .hud-label {
-    @apply block text-xs font-semibold text-hud-cyan uppercase tracking-widest mb-1;
+    @apply block text-xs font-semibold text-empire-rouge uppercase tracking-widest mb-1;
   }
 
-  /* Badge */
   .badge-cv {
-    @apply text-xs px-2 py-0.5 rounded-full bg-blue-900/60 text-blue-300 border border-blue-700/50;
+    @apply text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200;
   }
   .badge-loc {
-    @apply text-xs px-2 py-0.5 rounded-full bg-emerald-900/60 text-emerald-300 border border-emerald-700/50;
+    @apply text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200;
   }
   .badge-warn {
-    @apply text-xs px-2 py-0.5 rounded-full bg-red-900/60 text-red-300 border border-red-700/50 animate-pulse;
+    @apply text-xs px-2 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-200 animate-pulse;
   }
 
-  /* Table HUD */
-  .hud-table {
-    @apply w-full text-sm;
-  }
+  /* Table */
+  .hud-table { @apply w-full text-sm; }
   .hud-table thead tr {
-    @apply bg-hud-panel2 border-b border-hud-cyan/20;
+    @apply bg-red-50 border-b border-red-100;
   }
   .hud-table thead th {
-    @apply p-3 text-left text-xs font-semibold text-hud-cyan uppercase tracking-widest;
+    @apply p-3 text-left text-xs font-semibold text-empire-rouge uppercase tracking-widest;
   }
   .hud-table tbody tr {
-    @apply border-b border-hud-line transition-colors duration-150 hover:bg-hud-panel2;
+    @apply border-b border-red-50 transition-colors duration-150 hover:bg-red-50/50;
   }
   .hud-table tbody td {
-    @apply p-3 text-gray-300;
+    @apply p-3 text-gray-700;
   }
 
-  /* Titre section */
   .hud-title {
-    @apply font-display text-hud-cyan text-sm font-bold uppercase tracking-widest;
+    @apply font-display text-empire-rouge text-sm font-bold uppercase tracking-widest;
   }
 
-  /* Stat card */
-  .stat-card {
-    @apply card p-4 flex flex-col gap-1;
-  }
-  .stat-label {
-    @apply text-xs text-gray-500 uppercase tracking-widest;
-  }
-  .stat-value {
-    @apply text-lg font-display font-bold text-gray-100;
-  }
-  .stat-value-accent {
-    @apply stat-value text-hud-cyan;
-  }
-  .stat-value-danger {
-    @apply stat-value text-empire-rougeVif;
-  }
+  .stat-card  { @apply card p-4 flex flex-col gap-1; }
+  .stat-label { @apply text-xs text-gray-500 uppercase tracking-widest; }
+  .stat-value { @apply text-lg font-display font-bold text-gray-800; }
+  .stat-value-accent  { @apply stat-value text-empire-rouge; }
+  .stat-value-danger  { @apply stat-value text-empire-rougeVif; }
 
-  /* Barre de progression */
-  .progress-bar {
-    @apply w-full h-2 rounded-full bg-hud-line overflow-hidden;
-  }
-  .progress-fill {
-    @apply h-2 rounded-full transition-all duration-700;
-  }
+  .progress-bar  { @apply w-full h-2 rounded-full bg-red-100 overflow-hidden; }
+  .progress-fill { @apply h-2 rounded-full transition-all duration-700; }
 
-  /* Lien néon */
-  .neon-link {
-    @apply text-hud-cyan hover:text-white hover:underline transition-colors duration-150;
-  }
+  .neon-link { @apply text-empire-rouge hover:text-empire-rougeVif hover:underline transition-colors duration-150; }
 }
 
-/* ─── Scrollbar sombre ──────────────────────── */
+/* ─── Scrollbar claire ──────────────────── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #0b1020; }
-::-webkit-scrollbar-thumb { background: #1c2440; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #22e8ff44; }
-
-/* ─── Animation scan line (HUD vibe) ────────── */
-@keyframes scanline {
-  0% { transform: translateY(-100%); }
-  100% { transform: translateY(100vh); }
-}
+::-webkit-scrollbar-track { background: #fef2f2; }
+::-webkit-scrollbar-thumb { background: #fca5a5; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #b3122a; }
