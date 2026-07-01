@@ -46,14 +46,16 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: 'desc' },
     });
 
-    // Calcul du statut "a versé aujourd'hui" pour chaque chauffeur
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date();
-    todayEnd.setHours(23, 59, 59, 999);
+    // Calcul du statut "a versé hier" pour chaque chauffeur
+    const yesterdayStart = new Date();
+    yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+    yesterdayStart.setHours(0, 0, 0, 0);
+    const yesterdayEnd = new Date();
+    yesterdayEnd.setDate(yesterdayEnd.getDate() - 1);
+    yesterdayEnd.setHours(23, 59, 59, 999);
 
     const paidTodayIds = await prisma.payment.findMany({
-      where: { date: { gte: todayStart, lte: todayEnd } },
+      where: { date: { gte: yesterdayStart, lte: yesterdayEnd } },
       select: { driverId: true },
       distinct: ['driverId'],
     });

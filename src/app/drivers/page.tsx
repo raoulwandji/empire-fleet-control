@@ -119,7 +119,7 @@ export default function DriversPage() {
                 <tr key={d.id} className={d.paidToday ? 'bg-emerald-900/20 border-l-2 border-emerald-500' : 'bg-red-900/15 border-l-2 border-red-700'}>
                   <td>
                     {d.paidToday
-                      ? <span className="flex items-center gap-1.5 text-emerald-400 text-xs font-semibold"><span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse inline-block" />Versé</span>
+                      ? <span className="flex items-center gap-1.5 text-emerald-400 text-xs font-semibold"><span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse inline-block" />Versé hier</span>
                       : <span className="flex items-center gap-1.5 text-red-400 text-xs font-semibold"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />En attente</span>
                     }
                   </td>
