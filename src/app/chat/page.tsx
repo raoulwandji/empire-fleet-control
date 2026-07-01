@@ -24,7 +24,7 @@ type UserOption = { id: string; username: string; fullName: string };
 
 const ROLE_COLOR: Record<string, string> = {
   ADMIN: 'text-empire-rougeVif',
-  MANAGER: 'text-yellow-600',
+  MANAGER: 'text-yellow-400',
   EMPLOYEE: 'text-hud-cyan',
 };
 
@@ -172,7 +172,7 @@ export default function ChatPage() {
       <Navbar />
       <div className="flex flex-col flex-1 max-w-3xl mx-auto w-full px-4 py-4">
         <div className="mb-4">
-          <h1 className="font-display font-bold text-2xl text-empire-rouge tracking-widest">
+          <h1 className="font-display font-bold text-2xl text-transparent bg-clip-text bg-gradient-to-r from-hud-cyan to-white tracking-widest">
             CHAT
           </h1>
           <p className="text-xs text-gray-500 tracking-widest uppercase">Canal général — taguez avec @identifiant</p>
@@ -218,8 +218,8 @@ export default function ChatPage() {
                       </div>
                       <div className={`text-sm rounded-xl px-3 py-2 break-words leading-relaxed ${
                         isMe
-                          ? 'bg-red-50 border border-red-100 text-gray-800 rounded-tr-none'
-                          : 'bg-gray-50 border border-gray-100 text-gray-800 rounded-tl-none'
+                          ? 'bg-hud-cyan/15 text-white rounded-tr-none'
+                          : 'bg-white/5 text-gray-200 rounded-tl-none'
                       }`}>
                         {renderContent(msg.content, users)}
                       </div>

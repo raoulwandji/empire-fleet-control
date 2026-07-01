@@ -40,15 +40,18 @@ export default function LoginPage() {
 
         <div className="card p-8 space-y-6">
           {/* Logo + Titre */}
-          <div className="flex flex-col items-center gap-3">
-            <div className="relative w-24 h-24 rounded-xl overflow-hidden ring-2 ring-hud-cyan/40 shadow-neon">
+          <div className="flex flex-col items-center gap-4">
+            <div className="relative w-40 h-40 rounded-2xl overflow-hidden ring-2 ring-hud-cyan/50 shadow-neon">
               <Image src="/logo.jpg" alt="Yango Empire Drive" fill className="object-cover" priority />
             </div>
-            <div className="text-center">
-              <h1 className="font-display font-black text-xl tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-hud-cyan via-white to-empire-rougeVif">
-                EMPIRE-FLEET CONTROL
+            <div className="text-center space-y-1">
+              <h1 className="font-display font-black text-2xl tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-hud-cyan via-white to-empire-rougeVif">
+                EMPIRE-FLEET
               </h1>
-              <p className="text-xs text-gray-500 tracking-widest uppercase mt-1">
+              <h2 className="font-display font-black text-2xl tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-empire-rougeVif via-white to-hud-cyan">
+                CONTROL
+              </h2>
+              <p className="text-xs text-gray-500 tracking-widest uppercase pt-1">
                 Gestion de flotte YANGO
               </p>
             </div>
