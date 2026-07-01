@@ -13,6 +13,7 @@ const links = [
   { href: '/dashboard', label: 'Tableau de bord' },
   { href: '/drivers', label: 'Chauffeurs' },
   { href: '/pending-drivers', label: 'En attente' },
+  { href: '/chat', label: 'Chat' },
   { href: '/users', label: 'Utilisateurs', managerOnly: true },
   { href: '/assignments', label: 'Affectations', managerOnly: true },
 ];

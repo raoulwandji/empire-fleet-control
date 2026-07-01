@@ -51,6 +51,7 @@ model User {
   commentsAuthored Comment[]            @relation("CommentAuthor")
   auditLogs        AuditLog[]
   pendingDriversEntered PendingDriver[] @relation("PendingDriverEnteredBy")
+  chatMessages     ChatMessage[]        @relation("ChatMessageAuthor")
 
   @@map("users")
 }
@@ -202,6 +203,16 @@ model Comment {
   author User   @relation("CommentAuthor", fields: [authorId], references: [id])
 
   @@map("comments")
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  content   String   @db.Text
+  authorId  String
+  author    User     @relation("ChatMessageAuthor", fields: [authorId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@map("chat_messages")
 }
 
 model AuditLog {
