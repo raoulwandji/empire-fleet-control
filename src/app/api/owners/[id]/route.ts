@@ -2,14 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireSession, handleAccessError } from '@/lib/access';
 
-// GET /api/owners/[id] — détail propriétaire avec chauffeurs + stats semaine
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     await requireSession();
 
     const now = new Date();
-    const day = now.getDay(); // 0=dim
-    const diff = (day === 0 ? -6 : 1 - day);
+    const day = now.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
     const weekStart = new Date(now);
     weekStart.setDate(now.getDate() + diff);
     weekStart.setHours(0, 0, 0, 0);
@@ -35,6 +34,11 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
           orderBy: { fullName: 'asc' },
         },
         commissions: {
+          orderBy: { weekStart: 'desc' },
+          take: 12,
+          include: { enteredBy: { select: { fullName: true } } },
+        },
+        prefinancements: {
           orderBy: { weekStart: 'desc' },
           take: 12,
           include: { enteredBy: { select: { fullName: true } } },

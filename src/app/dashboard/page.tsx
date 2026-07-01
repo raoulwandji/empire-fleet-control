@@ -69,6 +69,7 @@ export default function DashboardPage() {
         )}
 
         <WeeklyTotalsPanel />
+        <EmpireWeeklyPanel />
         <ProgressPanel />
         <SanctionsPanel />
         <WeeklyStatusPanel />
@@ -153,6 +154,137 @@ function WeeklyTotalsPanel() {
             </span>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+type EmpireOwnerStat = {
+  id: string; fullName: string; versements: number;
+  commission: number; prefinancement: number; net: number;
+};
+
+function EmpireWeeklyPanel() {
+  const [data, setData] = useState<{
+    weekStart: string;
+    totalVersements: number;
+    totalCommissions: number;
+    totalPrefinancements: number;
+    totalNet: number;
+    owners: EmpireOwnerStat[];
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/dashboard/empire-weekly')
+      .then((r) => r.json())
+      .then((d) => { setData(d); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  const weekLabel = data?.weekStart
+    ? new Date(data.weekStart).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+    : '...';
+
+  return (
+    <div className="card p-5 space-y-5">
+      {/* Titre */}
+      <div className="flex items-center gap-2">
+        <div className="w-1 h-5 rounded-full bg-empire-rouge shadow-neon-red" />
+        <h2 className="font-display text-sm font-bold tracking-widest uppercase text-empire-rougeVif">
+          Récapitulatif Empire — Semaine du {weekLabel}
+        </h2>
+      </div>
+
+      {loading ? (
+        <p className="text-xs text-gray-500 animate-pulse tracking-widest">⟳ CHARGEMENT...</p>
+      ) : !data ? (
+        <p className="text-xs text-gray-600 italic">Données indisponibles.</p>
+      ) : (
+        <>
+          {/* 4 indicateurs globaux */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="stat-card">
+              <span className="stat-label">Versements bruts</span>
+              <span className="stat-value-accent">{formatFCFA(data.totalVersements)}</span>
+              <span className="text-[10px] text-gray-600">Tous propriétaires</span>
+            </div>
+            <div className="stat-card border-empire-rouge/30">
+              <span className="stat-label">Commissions Empire</span>
+              <span className="font-display font-bold text-lg text-empire-rougeVif">
+                {data.totalCommissions > 0 ? formatFCFA(data.totalCommissions) : '—'}
+              </span>
+              <span className="text-[10px] text-gray-600">Cumul semaine</span>
+            </div>
+            <div className="stat-card border-yellow-700/30">
+              <span className="stat-label">Préfinancements Empire</span>
+              <span className="font-display font-bold text-lg text-yellow-400">
+                {data.totalPrefinancements > 0 ? formatFCFA(data.totalPrefinancements) : '—'}
+              </span>
+              <span className="text-[10px] text-gray-600">Cumul semaine</span>
+            </div>
+            <div className="stat-card border-hud-green/30">
+              <span className="stat-label">Total net à verser</span>
+              <span className="font-display font-bold text-lg text-hud-green">
+                {formatFCFA(data.totalNet)}
+              </span>
+              <span className="text-[10px] text-gray-600">Brut − Comm. − Préfin.</span>
+            </div>
+          </div>
+
+          {/* Table par propriétaire */}
+          {data.owners.length === 0 ? (
+            <p className="text-xs text-gray-500 italic text-center py-3">Aucun versement enregistré cette semaine.</p>
+          ) : (
+            <div className="overflow-x-auto rounded-xl border border-hud-line">
+              <table className="hud-table">
+                <thead>
+                  <tr>
+                    <th>Propriétaire</th>
+                    <th className="text-right">Versements</th>
+                    <th className="text-right text-empire-rougeVif">− Commission</th>
+                    <th className="text-right text-yellow-400">− Préfinancement</th>
+                    <th className="text-right text-hud-green">Net à verser</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.owners.map((o) => (
+                    <tr key={o.id}>
+                      <td>
+                        <a href={`/owners/${o.id}`} className="neon-link font-medium">{o.fullName}</a>
+                      </td>
+                      <td className="text-right text-hud-cyan font-semibold">
+                        {o.versements > 0 ? formatFCFA(o.versements) : <span className="text-gray-600">—</span>}
+                      </td>
+                      <td className="text-right text-empire-rougeVif">
+                        {o.commission > 0 ? `− ${formatFCFA(o.commission)}` : <span className="text-gray-600">—</span>}
+                      </td>
+                      <td className="text-right text-yellow-400">
+                        {o.prefinancement > 0 ? `− ${formatFCFA(o.prefinancement)}` : <span className="text-gray-600">—</span>}
+                      </td>
+                      <td className={`text-right font-bold ${o.net >= 0 ? 'text-hud-green' : 'text-empire-rougeVif'}`}>
+                        {formatFCFA(o.net)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-hud-panel2 font-bold">
+                    <td className="p-3 text-xs text-gray-400 uppercase tracking-wider">Total</td>
+                    <td className="p-3 text-right text-hud-cyan">{formatFCFA(data.totalVersements)}</td>
+                    <td className="p-3 text-right text-empire-rougeVif">
+                      {data.totalCommissions > 0 ? `− ${formatFCFA(data.totalCommissions)}` : '—'}
+                    </td>
+                    <td className="p-3 text-right text-yellow-400">
+                      {data.totalPrefinancements > 0 ? `− ${formatFCFA(data.totalPrefinancements)}` : '—'}
+                    </td>
+                    <td className="p-3 text-right text-hud-green">{formatFCFA(data.totalNet)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
