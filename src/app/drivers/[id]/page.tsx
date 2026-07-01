@@ -120,7 +120,7 @@ export default function DriverDetailPage() {
         ))}
       </div>
 
-      {tab === 'Profil' && <ProfileTab driver={driver} />}
+      {tab === 'Profil' && <ProfileTab driver={driver} canWrite={canWrite} onChange={fetchDriver} />}
       {tab === 'Versements/Loyers' && <PaymentsTab driver={driver} canWrite={canWrite} onChange={fetchDriver} />}
       {tab === 'Caution' && !isCV && <CautionTab driver={driver} canWrite={canWrite} onChange={fetchDriver} />}
       {tab === 'Suivi hebdo' && <WeeklyTab driver={driver} canWrite={canWrite} onChange={fetchDriver} />}
@@ -149,23 +149,129 @@ function StatCard({ label, value, highlight, accent, danger }: { label: string; 
   );
 }
 
-function ProfileTab({ driver }: { driver: DriverDetail }) {
+function ProfileTab({ driver, canWrite, onChange }: { driver: DriverDetail; canWrite: boolean; onChange: () => void }) {
+  const [owners, setOwners] = useState<{ id: string; fullName: string; phone: string; location: string | null }[]>([]);
+  const [showOwnerEdit, setShowOwnerEdit] = useState(false);
+  const [selectedOwnerId, setSelectedOwnerId] = useState(driver.ownerId ?? '');
+  const [savingOwner, setSavingOwner] = useState(false);
+  const [ownerError, setOwnerError] = useState('');
+
+  useEffect(() => {
+    fetch('/api/owners').then((r) => r.json()).then(setOwners).catch(() => {});
+  }, []);
+
+  async function handleOwnerSave() {
+    if (!selectedOwnerId) return;
+    setSavingOwner(true);
+    setOwnerError('');
+    const owner = owners.find((o) => o.id === selectedOwnerId);
+    if (!owner) { setSavingOwner(false); return; }
+    const res = await fetch(`/api/drivers/${driver.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ownerId: owner.id,
+        ownerName: owner.fullName,
+        ownerPhone: owner.phone,
+        ownerLocation: owner.location ?? '',
+      }),
+    });
+    setSavingOwner(false);
+    if (!res.ok) { const d = await res.json(); setOwnerError(d.error ?? 'Erreur'); return; }
+    setShowOwnerEdit(false);
+    onChange();
+  }
+
   return (
-    <div className="card p-5 grid grid-cols-2 gap-4 text-sm">
-      {[
-        ['Téléphone', driver.phone], ['Localisation', driver.location],
-        ['N° de permis', driver.licenseNumber], ['Propriétaire', driver.ownerName],
-        ['Tél. propriétaire', driver.ownerPhone], ['Localisation propriétaire', driver.ownerLocation],
-        ['Garant', driver.guarantorName], ['Tél. garant', driver.guarantorPhone],
-        ['Couleur véhicule', driver.vehicleColor],
-        ['Mise en service', driver.vehicleInService ? new Date(driver.vehicleInService).toLocaleDateString('fr-FR') : null],
-        ['Affecté à', driver.assignments.map((a: any) => a.employee.fullName).join(', ') || null],
-      ].map(([lbl, val]) => (
-        <div key={lbl as string}>
-          <div className="hud-label">{lbl as string}</div>
-          <div className="text-gray-300">{(val as string) || '—'}</div>
+    <div className="space-y-4">
+      <div className="card p-5 grid grid-cols-2 gap-4 text-sm">
+        {[
+          ['Téléphone', driver.phone], ['Localisation', driver.location],
+          ['N° de permis', driver.licenseNumber],
+          ['Garant', driver.guarantorName], ['Tél. garant', driver.guarantorPhone],
+          ['Couleur véhicule', driver.vehicleColor],
+          ['Mise en service', driver.vehicleInService ? new Date(driver.vehicleInService).toLocaleDateString('fr-FR') : null],
+          ['Affecté à', driver.assignments.map((a: any) => a.employee.fullName).join(', ') || null],
+        ].map(([lbl, val]) => (
+          <div key={lbl as string}>
+            <div className="hud-label">{lbl as string}</div>
+            <div className="text-gray-300">{(val as string) || '—'}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Bloc propriétaire séparé avec option de modification */}
+      <div className="card p-5">
+        <div className="flex items-center justify-between mb-3">
+          <span className="hud-title">Propriétaire du véhicule</span>
+          {canWrite && (
+            <button
+              onClick={() => { setShowOwnerEdit((v) => !v); setOwnerError(''); setSelectedOwnerId(driver.ownerId ?? ''); }}
+              className="text-xs text-hud-cyan hover:underline"
+            >
+              {showOwnerEdit ? 'Annuler' : 'Modifier'}
+            </button>
+          )}
         </div>
-      ))}
+
+        {!showOwnerEdit ? (
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <div className="hud-label">Nom</div>
+              <div className="text-gray-300">{driver.ownerName || '—'}</div>
+            </div>
+            <div>
+              <div className="hud-label">Téléphone</div>
+              <div className="text-gray-300">{driver.ownerPhone || '—'}</div>
+            </div>
+            <div>
+              <div className="hud-label">Localisation</div>
+              <div className="text-gray-300">{driver.ownerLocation || '—'}</div>
+            </div>
+            {driver.ownerId && (
+              <div>
+                <div className="hud-label">Fiche propriétaire</div>
+                <a href={`/owners/${driver.ownerId}`} className="neon-link text-sm">Voir le profil →</a>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div>
+              <label className="hud-label">Sélectionner un propriétaire *</label>
+              <select
+                value={selectedOwnerId}
+                onChange={(e) => setSelectedOwnerId(e.target.value)}
+                className="hud-select w-full"
+              >
+                <option value="">— Choisir un propriétaire —</option>
+                {owners.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.fullName} · {o.phone}{o.location ? ` · ${o.location}` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {selectedOwnerId && (() => {
+              const o = owners.find((x) => x.id === selectedOwnerId);
+              return o ? (
+                <div className="bg-hud-panel2 border border-hud-cyan/20 rounded-lg p-3 text-sm space-y-1">
+                  <div className="flex gap-2"><span className="text-gray-500 w-24">Nom :</span><span className="text-gray-200 font-medium">{o.fullName}</span></div>
+                  <div className="flex gap-2"><span className="text-gray-500 w-24">Téléphone :</span><span className="text-gray-200">{o.phone}</span></div>
+                  {o.location && <div className="flex gap-2"><span className="text-gray-500 w-24">Localisation :</span><span className="text-gray-200">{o.location}</span></div>}
+                </div>
+              ) : null;
+            })()}
+            {ownerError && <p className="text-empire-rougeVif text-xs">{ownerError}</p>}
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowOwnerEdit(false)} className="btn-secondary text-xs py-1.5 px-3">Annuler</button>
+              <button onClick={handleOwnerSave} disabled={!selectedOwnerId || savingOwner} className="btn-primary text-xs py-1.5 px-3">
+                {savingOwner ? '⟳ Enregistrement...' : 'Enregistrer'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
