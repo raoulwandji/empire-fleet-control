@@ -7,6 +7,8 @@ import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import { formatFCFA } from '@/lib/business';
 import clsx from 'clsx';
+import DriversEvolutionChart from '@/components/DriversEvolutionChart';
+import CommissionsEvolutionChart from '@/components/CommissionsEvolutionChart';
 
 type Ranked = { driverId: string; code: string; fullName: string; totalRides: number; totalHours: number };
 type ProgressRow = { driverId: string; code: string; fullName: string; totalFixed: number; totalPaid: number; resteAPayer: number; percent: number };
@@ -81,6 +83,13 @@ export default function DashboardPage() {
 
         <WeeklyTotalsPanel />
         <EmpireWeeklyPanel />
+
+        {/* Graphiques d'évolution */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <DriversEvolutionChart />
+          <CommissionsEvolutionChart />
+        </div>
+
         <ProgressPanel />
         <SanctionsPanel />
         <WeeklyStatusPanel />

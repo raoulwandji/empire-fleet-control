@@ -101,19 +101,19 @@ export default function Navbar() {
   }, [menuOpen]);
 
   return (
-    <nav className="sticky top-0 z-50 bg-yango-dark/95 backdrop-blur-md border-b border-yango-line px-4 py-2.5 flex items-center gap-2">
-      {/* Logo */}
+    <nav className="sticky top-0 z-50 bg-hud-panel/80 backdrop-blur-md border-b border-hud-cyan/20 px-4 py-3 flex items-center gap-2">
+      {/* Logo — toujours visible */}
       <div className="flex items-center gap-3 shrink-0">
-        <div className="relative w-8 h-8 rounded-xl overflow-hidden ring-2 ring-yango-yellow/60">
+        <div className="relative w-9 h-9 rounded-lg overflow-hidden ring-1 ring-hud-cyan/50 shadow-neon">
           <Image src="/logo.jpg" alt="Yango Empire Drive" fill className="object-cover" />
         </div>
-        <span className="font-display font-black tracking-tight text-sm text-yango-yellow whitespace-nowrap hidden sm:inline">
-          EMPIRE-FLEET
+        <span className="font-display font-bold tracking-widest text-sm text-transparent bg-clip-text bg-gradient-to-r from-hud-cyan to-empire-rougeVif whitespace-nowrap hidden sm:inline">
+          EMPIRE-FLEET CONTROL
         </span>
       </div>
 
-      {/* Liens */}
-      <div className="flex gap-0.5 text-sm font-medium overflow-x-auto flex-1 min-w-0">
+      {/* Liens de navigation — scrollables si l'écran est étroit */}
+      <div className="flex gap-1 text-sm font-medium overflow-x-auto flex-1 min-w-0">
         {links
           .filter((l) => !l.managerOnly || isAdminOrManager)
           .map((l) => {
@@ -123,10 +123,10 @@ export default function Navbar() {
                 key={l.href}
                 href={l.href}
                 className={clsx(
-                  'px-3 py-1.5 rounded-lg transition-all duration-150 whitespace-nowrap shrink-0 font-semibold',
+                  'px-3 py-1.5 rounded-lg transition-all duration-150 border whitespace-nowrap shrink-0',
                   active
-                    ? 'bg-yango-yellow text-yango-black'
-                    : 'text-yango-muted hover:text-yango-text hover:bg-yango-card'
+                    ? 'border-hud-cyan/50 text-hud-cyan bg-hud-cyan/10 shadow-neon'
+                    : 'border-transparent text-gray-400 hover:text-gray-100 hover:border-hud-line'
                 )}
               >
                 {l.label}
@@ -135,15 +135,15 @@ export default function Navbar() {
           })}
       </div>
 
-      {/* Bouton Chat */}
+      {/* Bouton Chat — toujours visible avec badge non lus */}
       <button
         onClick={() => router.push('/chat')}
         title="Chat"
         className={clsx(
-          'shrink-0 relative w-8 h-8 rounded-xl flex items-center justify-center transition-all',
+          'shrink-0 relative w-8 h-8 rounded-full flex items-center justify-center border transition-all',
           pathname?.startsWith('/chat')
-            ? 'bg-yango-yellow text-yango-black'
-            : 'bg-yango-card text-yango-muted hover:text-yango-yellow'
+            ? 'border-hud-cyan/60 bg-hud-cyan/15 text-hud-cyan shadow-neon'
+            : 'border-hud-line text-gray-400 hover:text-hud-cyan hover:border-hud-cyan/40'
         )}
       >
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
@@ -163,25 +163,25 @@ export default function Navbar() {
         className="flex items-center gap-2 shrink-0"
       >
         <AvatarUploader fullName={session?.user.name ?? '?'} avatarUrl={avatarUrl} size={32} />
-        <span className="text-yango-muted hidden md:inline whitespace-nowrap text-sm">
+        <span className="text-gray-400 hidden md:inline whitespace-nowrap">
           {session?.user.name}{' '}
           <span className={clsx(
-            'font-bold',
-            role === 'ADMIN' ? 'text-yango-yellow' : role === 'MANAGER' ? 'text-yango-yellow/80' : 'text-yango-muted'
+            'font-semibold',
+            role === 'ADMIN' ? 'text-empire-rougeVif' : role === 'MANAGER' ? 'text-yellow-400' : 'text-hud-cyan'
           )}>
             ({roleLabel(role)})
           </span>
         </span>
       </button>
 
-      {/* Dropdown profil */}
+      {/* Dropdown profil en position fixe */}
       {menuOpen && (
         <div
           ref={dropdownRef}
           style={{ position: 'fixed', top: dropPos.top, right: dropPos.right }}
           className="card p-4 w-64 z-50 space-y-3"
         >
-          <p className="text-xs text-yango-muted uppercase tracking-widest font-bold">Photo de profil</p>
+          <p className="text-xs text-gray-500 uppercase tracking-widest">Photo de profil</p>
           <AvatarUploader
             fullName={session?.user.name ?? '?'}
             avatarUrl={avatarUrl}
@@ -189,9 +189,9 @@ export default function Navbar() {
             editable
             onUpdated={setAvatarUrl}
           />
-          <div className="h-px bg-yango-line" />
+          <div className="h-px bg-hud-line" />
           {session?.user.username && <CredentialsEditor username={session.user.username} />}
-          <div className="h-px bg-yango-line" />
+          <div className="h-px bg-hud-line" />
           <button onClick={() => signOut({ callbackUrl: '/login' })} className="btn-danger w-full !py-1.5">
             Déconnexion
           </button>

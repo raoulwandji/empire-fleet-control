@@ -24,126 +24,78 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-yango-black flex">
-      {/* Panneau gauche — branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-yango-yellow flex-col items-center justify-center p-12 relative overflow-hidden">
-        {/* Cercles décoratifs */}
-        <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-black/10" />
-        <div className="absolute -bottom-32 -right-32 w-[28rem] h-[28rem] rounded-full bg-black/10" />
-
-        <div className="relative z-10 flex flex-col items-center gap-8 text-center">
-          <div className="relative w-36 h-36 rounded-3xl overflow-hidden shadow-2xl ring-4 ring-black/20">
-            <Image src="/logo.jpg" alt="Empire Drive" fill className="object-cover" priority />
-          </div>
-          <div>
-            <h1 className="text-5xl font-black text-yango-black tracking-tight leading-none">
-              EMPIRE
-            </h1>
-            <h2 className="text-5xl font-black text-yango-black tracking-tight leading-none">
-              FLEET
-            </h2>
-            <div className="mt-3 h-1 w-16 bg-black/30 rounded-full mx-auto" />
-            <p className="mt-4 text-yango-black/70 font-semibold text-lg">
-              Partenaire Yango
-            </p>
-          </div>
-          <div className="grid grid-cols-3 gap-4 mt-4 w-full max-w-xs">
-            {['Chauffeurs', 'Versements', 'Rapports'].map((label) => (
-              <div key={label} className="bg-black/10 rounded-2xl px-3 py-4 text-center">
-                <p className="text-yango-black font-bold text-xs uppercase tracking-wider">{label}</p>
-              </div>
-            ))}
-          </div>
-        </div>
+    <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden">
+      {/* Décorations de fond */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-hud-cyan/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-empire-rouge/10 rounded-full blur-3xl" />
       </div>
 
-      {/* Panneau droit — formulaire */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
-        {/* Logo mobile */}
-        <div className="flex flex-col items-center gap-4 mb-10 lg:hidden">
-          <div className="relative w-24 h-24 rounded-2xl overflow-hidden ring-2 ring-yango-yellow/50">
-            <Image src="/logo.jpg" alt="Empire Drive" fill className="object-cover" priority />
-          </div>
-          <div className="text-center">
-            <h1 className="text-3xl font-black text-yango-yellow tracking-tight">EMPIRE FLEET</h1>
-            <p className="text-yango-muted text-sm mt-1">Partenaire Yango</p>
-          </div>
-        </div>
+      <div className="w-full max-w-sm relative">
+        {/* Coins décoratifs HUD */}
+        <div className="absolute -top-1 -left-1 w-4 h-4 border-t-2 border-l-2 border-hud-cyan/70" />
+        <div className="absolute -top-1 -right-1 w-4 h-4 border-t-2 border-r-2 border-hud-cyan/70" />
+        <div className="absolute -bottom-1 -left-1 w-4 h-4 border-b-2 border-l-2 border-hud-cyan/70" />
+        <div className="absolute -bottom-1 -right-1 w-4 h-4 border-b-2 border-r-2 border-hud-cyan/70" />
 
-        <div className="w-full max-w-sm space-y-8">
-          <div>
-            <h2 className="text-3xl font-black text-yango-text">Connexion</h2>
-            <p className="text-yango-muted mt-2 text-sm">Accédez à votre espace de gestion de flotte.</p>
+        <div className="card p-8 space-y-6">
+          {/* Logo + Titre */}
+          <div className="flex flex-col items-center gap-4">
+            <div className="relative w-40 h-40 rounded-2xl overflow-hidden ring-2 ring-hud-cyan/50 shadow-neon">
+              <Image src="/logo.jpg" alt="Yango Empire Drive" fill className="object-cover" priority />
+            </div>
+            <div className="text-center space-y-1">
+              <h1 className="font-display font-black text-2xl tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-hud-cyan via-white to-empire-rougeVif">
+                EMPIRE-FLEET
+              </h1>
+              <h2 className="font-display font-black text-2xl tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-empire-rougeVif via-white to-hud-cyan">
+                CONTROL
+              </h2>
+              <p className="text-xs text-gray-500 tracking-widest uppercase pt-1">
+                Gestion de flotte YANGO
+              </p>
+            </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Séparateur néon */}
+          <div className="h-px bg-gradient-to-r from-transparent via-hud-cyan/50 to-transparent" />
+
+          {/* Formulaire */}
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-bold text-yango-muted mb-2 uppercase tracking-wider">
-                Identifiant
-              </label>
+              <label className="hud-label">Identifiant</label>
               <input
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full bg-yango-card border border-yango-line rounded-xl px-4 py-3.5 text-yango-text
-                           text-sm focus:outline-none focus:border-yango-yellow focus:ring-2 focus:ring-yango-yellow/20
-                           transition-all placeholder:text-yango-muted"
+                className="hud-input"
                 placeholder="Votre identifiant"
                 required
                 autoFocus
               />
             </div>
-
             <div>
-              <label className="block text-sm font-bold text-yango-muted mb-2 uppercase tracking-wider">
-                Mot de passe
-              </label>
+              <label className="hud-label">Mot de passe</label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-yango-card border border-yango-line rounded-xl px-4 py-3.5 text-yango-text
-                           text-sm focus:outline-none focus:border-yango-yellow focus:ring-2 focus:ring-yango-yellow/20
-                           transition-all placeholder:text-yango-muted"
+                className="hud-input"
                 placeholder="••••••••"
                 required
               />
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 text-sm text-red-400 bg-red-950/40 border border-red-800/50 rounded-xl px-4 py-3">
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                </svg>
+              <div className="text-xs text-empire-rougeVif border border-empire-rouge/30 bg-empire-rouge/10 rounded-lg px-3 py-2">
                 {error}
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-yango-yellow text-yango-black font-black text-base py-3.5 rounded-xl
-                         hover:bg-yango-yellowDark transition-all duration-200
-                         disabled:opacity-50 disabled:cursor-not-allowed
-                         shadow-neon flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <svg className="animate-spin w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                  </svg>
-                  Connexion...
-                </>
-              ) : (
-                'Se connecter'
-              )}
+            <button type="submit" disabled={loading} className="btn-primary w-full py-3 font-display tracking-widest">
+              {loading ? '⟳  CONNEXION...' : '→  SE CONNECTER'}
             </button>
           </form>
-
-          <p className="text-center text-xs text-yango-muted">
-            EMPIRE-FLEET CONTROL — Gestion de flotte Yango
-          </p>
         </div>
       </div>
     </div>

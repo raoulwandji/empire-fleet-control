@@ -2,144 +2,147 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ─── Reset ─────────────────────────────────── */
+/* ─── Reset ────────────────────────────────── */
 * { box-sizing: border-box; }
 
-/* ─── Base body ──────────────────────────────── */
-body {
-  font-family: var(--font-body), 'Segoe UI', sans-serif;
-  background-color: #0A0A0A;
-  color: #F0F0F0;
-}
-
-/* ─── Inputs ─────────────────────────────────── */
+/* ─── Inputs HUD par défaut (fond sombre) ─── */
 input:not(.form-input), textarea:not(.form-input), select:not(.form-select) {
-  background-color: #1A1A1A;
-  color: #F0F0F0;
-  border-color: #2E2E2E;
+  background-color: #04060d;
+  color: #e5e7eb;
+  border-color: #1c2440;
 }
 input:not(.form-input)::placeholder, textarea:not(.form-input)::placeholder {
-  color: #555555;
+  color: #4b5563;
 }
 input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: invert(0.8) sepia(1) saturate(5) hue-rotate(5deg);
+  filter: invert(0.6) sepia(1) saturate(3) hue-rotate(160deg);
   cursor: pointer;
 }
-option { background-color: #1A1A1A; color: #F0F0F0; }
+option { background-color: #0b1020; color: #e5e7eb; }
 
+/* ─── Inputs saisie manuelle (fond blanc, texte noir foncé) ─── */
 .form-input, .form-select {
-  background-color: #222222 !important;
-  color: #F0F0F0 !important;
-  border-color: #2E2E2E;
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  border-color: #1c2440;
 }
-.form-input::placeholder { color: #555555 !important; }
+.form-input::placeholder {
+  color: #9ca3af !important;
+}
 .form-input:focus, .form-select:focus {
-  background-color: #222222 !important;
-  border-color: #FFD200 !important;
-  box-shadow: 0 0 0 2px rgba(255,210,0,0.2) !important;
+  background-color: #f9fafb !important;
+  border-color: #22e8ff !important;
+  box-shadow: 0 0 0 2px rgba(34, 232, 255, 0.2) !important;
   outline: none;
 }
-.form-select option { background-color: #222222; color: #F0F0F0; }
+.form-select option {
+  background-color: #ffffff;
+  color: #111827;
+}
 
-/* ─── Component layer ────────────────────────── */
+body {
+  font-family: var(--font-body), 'Segoe UI', sans-serif;
+  background-color: #04060d;
+  background-image:
+    linear-gradient(rgba(34,232,255,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34,232,255,0.04) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* ─── HUD card (glassmorphism) ──────────────── */
 @layer components {
-
-  /* Cards */
   .card {
-    @apply bg-yango-card border border-yango-line rounded-2xl shadow-card;
-  }
-  .card-hover {
-    @apply card transition-all duration-200 hover:border-yango-yellow/40 hover:shadow-neon;
+    @apply bg-hud-panel border border-hud-line rounded-xl shadow-glass backdrop-blur-sm;
   }
 
-  /* Inputs */
-  .hud-input {
-    @apply w-full bg-yango-card2 border border-yango-line rounded-xl px-4 py-2.5 text-yango-text
-           text-sm focus:outline-none focus:border-yango-yellow focus:ring-2 focus:ring-yango-yellow/20
-           transition-all duration-200 placeholder:text-yango-muted;
+  .card-hover {
+    @apply card transition-all duration-200 hover:border-hud-cyan/40 hover:shadow-neon;
   }
+
+  .hud-input {
+    @apply w-full bg-hud-bg border border-hud-line rounded-lg px-3 py-2 text-gray-100
+           text-sm focus:outline-none focus:border-hud-cyan focus:shadow-neon
+           transition-all duration-200 placeholder:text-gray-600;
+  }
+
   .hud-select {
     @apply hud-input appearance-none cursor-pointer;
   }
+
   .form-input {
-    @apply w-full bg-yango-card2 border border-yango-line rounded-xl px-4 py-2.5
-           text-yango-text text-sm
-           focus:outline-none focus:border-yango-yellow focus:ring-2 focus:ring-yango-yellow/20
-           transition-all duration-200 placeholder:text-yango-muted;
+    @apply w-full bg-white border-2 border-hud-line rounded-lg px-3 py-2
+           text-gray-900 font-medium text-sm
+           focus:outline-none focus:border-hud-cyan focus:ring-2 focus:ring-hud-cyan/30
+           transition-all duration-200 placeholder:text-gray-400;
   }
+
   .form-select {
     @apply form-input appearance-none cursor-pointer;
   }
 
-  /* Buttons */
   .btn-primary {
-    @apply bg-yango-yellow text-yango-black font-bold px-5 py-2.5 rounded-xl text-sm
-           hover:bg-yango-yellowDark shadow-neon
+    @apply bg-empire-rouge text-white font-semibold px-4 py-2 rounded-lg text-sm
+           shadow-neon-red hover:bg-empire-rougeVif hover:shadow-neon-red
            transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed;
   }
+
   .btn-secondary {
-    @apply bg-transparent border border-yango-line text-yango-text px-4 py-2.5 rounded-xl text-sm
-           hover:border-yango-yellow hover:text-yango-yellow transition-all duration-200;
+    @apply bg-transparent border border-hud-line text-gray-300 px-4 py-2 rounded-lg text-sm
+           hover:border-hud-cyan hover:text-hud-cyan transition-all duration-200;
   }
+
   .btn-danger {
-    @apply bg-transparent border border-red-800 text-red-400 px-4 py-2.5 rounded-xl text-sm
-           hover:bg-red-950/50 hover:border-red-500 hover:text-red-300
+    @apply bg-transparent border border-red-800 text-red-400 px-4 py-2 rounded-lg text-sm
+           hover:bg-red-950 hover:border-empire-rougeVif hover:text-empire-rougeVif
            transition-all duration-200;
   }
 
-  /* Labels */
   .hud-label {
-    @apply block text-xs font-bold text-yango-muted uppercase tracking-widest mb-1.5;
+    @apply block text-xs font-semibold text-hud-cyan uppercase tracking-widest mb-1;
   }
 
-  /* Badges */
   .badge-cv {
-    @apply text-xs px-2.5 py-0.5 rounded-full bg-blue-900/40 text-blue-300 border border-blue-700/40 font-semibold;
+    @apply text-xs px-2 py-0.5 rounded-full bg-blue-900/60 text-blue-300 border border-blue-700/50;
   }
   .badge-loc {
-    @apply text-xs px-2.5 py-0.5 rounded-full bg-emerald-900/40 text-emerald-300 border border-emerald-700/40 font-semibold;
+    @apply text-xs px-2 py-0.5 rounded-full bg-emerald-900/60 text-emerald-300 border border-emerald-700/50;
   }
   .badge-warn {
-    @apply text-xs px-2.5 py-0.5 rounded-full bg-red-900/40 text-red-300 border border-red-700/40 animate-pulse font-semibold;
+    @apply text-xs px-2 py-0.5 rounded-full bg-red-900/60 text-red-300 border border-red-700/50 animate-pulse;
   }
 
-  /* Tables */
   .hud-table { @apply w-full text-sm; }
   .hud-table thead tr {
-    @apply bg-yango-card2 border-b border-yango-line;
+    @apply bg-hud-panel2 border-b border-hud-cyan/20;
   }
   .hud-table thead th {
-    @apply p-3 text-left text-xs font-bold text-yango-muted uppercase tracking-widest;
+    @apply p-3 text-left text-xs font-semibold text-hud-cyan uppercase tracking-widest;
   }
   .hud-table tbody tr {
-    @apply border-b border-yango-line transition-colors duration-150 hover:bg-yango-card2;
+    @apply border-b border-hud-line transition-colors duration-150 hover:bg-hud-panel2;
   }
   .hud-table tbody td {
-    @apply p-3 text-yango-text;
+    @apply p-3 text-gray-300;
   }
 
-  /* Titles */
   .hud-title {
-    @apply font-display text-yango-yellow text-sm font-bold uppercase tracking-widest;
+    @apply font-display text-hud-cyan text-sm font-bold uppercase tracking-widest;
   }
 
-  /* Stat cards */
-  .stat-card        { @apply card p-4 flex flex-col gap-1; }
-  .stat-label       { @apply text-xs text-yango-muted uppercase tracking-widest font-semibold; }
-  .stat-value       { @apply text-lg font-display font-bold text-yango-text; }
-  .stat-value-accent { @apply stat-value text-yango-yellow; }
-  .stat-value-danger { @apply stat-value text-yango-red; }
+  .stat-card  { @apply card p-4 flex flex-col gap-1; }
+  .stat-label { @apply text-xs text-gray-500 uppercase tracking-widest; }
+  .stat-value { @apply text-lg font-display font-bold text-gray-100; }
+  .stat-value-accent  { @apply stat-value text-hud-cyan; }
+  .stat-value-danger  { @apply stat-value text-empire-rougeVif; }
 
-  /* Progress */
-  .progress-bar  { @apply w-full h-2 rounded-full bg-yango-line overflow-hidden; }
+  .progress-bar  { @apply w-full h-2 rounded-full bg-hud-line overflow-hidden; }
   .progress-fill { @apply h-2 rounded-full transition-all duration-700; }
 
-  /* Links */
-  .neon-link { @apply text-yango-yellow hover:text-white hover:underline transition-colors duration-150; }
+  .neon-link { @apply text-hud-cyan hover:text-white hover:underline transition-colors duration-150; }
 }
 
-/* ─── Scrollbar ──────────────────────────────── */
+/* ─── Scrollbar sombre ──────────────────────── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #111111; }
-::-webkit-scrollbar-thumb { background: #2E2E2E; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #FFD20066; }
+::-webkit-scrollbar-track { background: #0b1020; }
+::-webkit-scrollbar-thumb { background: #1c2440; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #22e8ff44; }
