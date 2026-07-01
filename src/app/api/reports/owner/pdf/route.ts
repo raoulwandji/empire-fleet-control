@@ -34,14 +34,29 @@ export async function GET(req: NextRequest) {
       dateFilter.lt = toDate;
     }
 
-    const payments = await prisma.payment.findMany({
-      where: {
-        driver: { ownerId },
-        ...(Object.keys(dateFilter).length > 0 ? { date: dateFilter } : {}),
-      },
-      select: { amount: true, date: true, driverId: true },
-      orderBy: { date: 'asc' },
-    });
+    const [payments, prefinancements] = await Promise.all([
+      prisma.payment.findMany({
+        where: {
+          driver: { ownerId },
+          ...(Object.keys(dateFilter).length > 0 ? { date: dateFilter } : {}),
+        },
+        select: { amount: true, date: true, driverId: true },
+        orderBy: { date: 'asc' },
+      }),
+      prisma.ownerPrefinancement.findMany({
+        where: {
+          ownerId,
+          ...(Object.keys(dateFilter).length > 0 ? { weekStart: dateFilter } : {}),
+        },
+        select: {
+          amount: true,
+          weekStart: true,
+          note: true,
+          driver: { select: { vehiclePlate: true, fullName: true, code: true } },
+        },
+        orderBy: { weekStart: 'asc' },
+      }),
+    ]);
 
     function getWeekStart(date: Date): string {
       const d = new Date(date);
@@ -52,9 +67,7 @@ export async function GET(req: NextRequest) {
       return d.toISOString().slice(0, 10);
     }
 
-    const driverMap = new Map(drivers.map((d) => [d.id, d]));
     const byWeekDriver = new Map<string, Map<string, number>>();
-
     for (const p of payments) {
       const wk = getWeekStart(p.date);
       if (!byWeekDriver.has(wk)) byWeekDriver.set(wk, new Map());
@@ -62,38 +75,59 @@ export async function GET(req: NextRequest) {
       dMap.set(p.driverId, (dMap.get(p.driverId) ?? 0) + Number(p.amount));
     }
 
-    const weeks = [...byWeekDriver.keys()].sort();
+    const byWeekPref = new Map<string, typeof prefinancements>();
+    for (const pf of prefinancements) {
+      const wk = pf.weekStart.toISOString().slice(0, 10);
+      if (!byWeekPref.has(wk)) byWeekPref.set(wk, []);
+      byWeekPref.get(wk)!.push(pf);
+    }
 
-    // Flatten to rows: Semaine | Véhicule | Chauffeur | Total
+    const allWeeks = [...new Set([...byWeekDriver.keys(), ...byWeekPref.keys()])].sort();
+
+    const fmt = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 0 }) + ' XOF';
+
+    // Flatten to rows with versements + préfinancements per week
     const rows: Record<string, unknown>[] = [];
-    for (const wk of weeks) {
-      const dMap = byWeekDriver.get(wk)!;
+    for (const wk of allWeeks) {
+      const dMap = byWeekDriver.get(wk) ?? new Map<string, number>();
+      const weekPrefs = byWeekPref.get(wk) ?? [];
+
+      // Versements par véhicule
       for (const d of drivers) {
         const total = dMap.get(d.id) ?? 0;
         if (total > 0) {
-          rows.push({
-            semaine: wk,
-            vehicule: d.vehiclePlate,
-            chauffeur: `${d.fullName} (${d.code})`,
-            total: total.toLocaleString('fr-FR', { minimumFractionDigits: 0 }) + ' XOF',
-          });
+          rows.push({ semaine: wk, ligne: 'Versement', vehicule: d.vehiclePlate, detail: `${d.fullName} (${d.code})`, montant: fmt(total) });
         }
       }
-      // Subtotal row
+
       const weekTotal = [...dMap.values()].reduce((s, v) => s + v, 0);
-      rows.push({
-        semaine: '',
-        vehicule: '',
-        chauffeur: 'TOTAL SEMAINE',
-        total: weekTotal.toLocaleString('fr-FR', { minimumFractionDigits: 0 }) + ' XOF',
-      });
+      rows.push({ semaine: '', ligne: 'TOTAL VERSEMENTS', vehicule: '', detail: '', montant: fmt(weekTotal) });
+
+      // Préfinancements
+      for (const pf of weekPrefs) {
+        const veh = pf.driver ? `${pf.driver.vehiclePlate} — ${pf.driver.fullName}` : 'Non spécifié';
+        rows.push({ semaine: '', ligne: 'Préfinancement', vehicule: veh, detail: pf.note ?? '', montant: `− ${fmt(Number(pf.amount))}` });
+      }
+
+      if (weekPrefs.length > 0) {
+        const totalPrefs = weekPrefs.reduce((s, pf) => s + Number(pf.amount), 0);
+        const net = weekTotal - totalPrefs;
+        rows.push({ semaine: '', ligne: 'NET À VERSER', vehicule: '', detail: '', montant: fmt(net) });
+      }
+
+      // Séparateur visuel
+      rows.push({ semaine: '---', ligne: '', vehicule: '', detail: '', montant: '' });
     }
+
+    // Retirer le dernier séparateur
+    if (rows.length > 0 && rows[rows.length - 1].semaine === '---') rows.pop();
 
     const columns = [
       { key: 'semaine', header: 'Semaine' },
+      { key: 'ligne', header: 'Type' },
       { key: 'vehicule', header: 'Véhicule' },
-      { key: 'chauffeur', header: 'Chauffeur' },
-      { key: 'total', header: 'Total versé' },
+      { key: 'detail', header: 'Détail / Objet' },
+      { key: 'montant', header: 'Montant' },
     ];
 
     const period = from && to ? `${from} → ${to}` : from ? `À partir du ${from}` : to ? `Jusqu'au ${to}` : 'Toutes périodes';

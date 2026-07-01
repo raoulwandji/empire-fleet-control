@@ -33,20 +33,31 @@ export async function GET(req: NextRequest) {
       dateFilter.lt = toDate;
     }
 
-    const payments = await prisma.payment.findMany({
-      where: {
-        driver: { ownerId },
-        ...(Object.keys(dateFilter).length > 0 ? { date: dateFilter } : {}),
-      },
-      select: {
-        amount: true,
-        date: true,
-        driverId: true,
-      },
-      orderBy: { date: 'asc' },
-    });
+    const [payments, prefinancements] = await Promise.all([
+      prisma.payment.findMany({
+        where: {
+          driver: { ownerId },
+          ...(Object.keys(dateFilter).length > 0 ? { date: dateFilter } : {}),
+        },
+        select: { amount: true, date: true, driverId: true },
+        orderBy: { date: 'asc' },
+      }),
+      prisma.ownerPrefinancement.findMany({
+        where: {
+          ownerId,
+          ...(Object.keys(dateFilter).length > 0 ? { weekStart: dateFilter } : {}),
+        },
+        select: {
+          id: true,
+          amount: true,
+          weekStart: true,
+          note: true,
+          driver: { select: { vehiclePlate: true, fullName: true, code: true } },
+        },
+        orderBy: { weekStart: 'asc' },
+      }),
+    ]);
 
-    // Group by driver then week
     function getWeekStart(date: Date): string {
       const d = new Date(date);
       const day = d.getDay();
@@ -56,10 +67,8 @@ export async function GET(req: NextRequest) {
       return d.toISOString().slice(0, 10);
     }
 
-    const driverMap = new Map(drivers.map((d) => [d.id, d]));
-    // weekKey -> driverId -> total
+    // weekKey -> driverId -> total versements
     const byWeekDriver = new Map<string, Map<string, number>>();
-
     for (const p of payments) {
       const wk = getWeekStart(p.date);
       if (!byWeekDriver.has(wk)) byWeekDriver.set(wk, new Map());
@@ -67,10 +76,19 @@ export async function GET(req: NextRequest) {
       dMap.set(p.driverId, (dMap.get(p.driverId) ?? 0) + Number(p.amount));
     }
 
-    const weeks = [...byWeekDriver.keys()].sort();
+    // weekKey -> préfinancements[]
+    const byWeekPref = new Map<string, typeof prefinancements>();
+    for (const pf of prefinancements) {
+      const wk = pf.weekStart.toISOString().slice(0, 10);
+      if (!byWeekPref.has(wk)) byWeekPref.set(wk, []);
+      byWeekPref.get(wk)!.push(pf);
+    }
 
-    const rows = weeks.map((wk) => {
-      const dMap = byWeekDriver.get(wk)!;
+    // Merge all weeks from both payments and préfinancements
+    const allWeeks = [...new Set([...byWeekDriver.keys(), ...byWeekPref.keys()])].sort();
+
+    const rows = allWeeks.map((wk) => {
+      const dMap = byWeekDriver.get(wk) ?? new Map<string, number>();
       const perDriver = drivers.map((d) => ({
         driverId: d.id,
         vehiclePlate: d.vehiclePlate,
@@ -79,12 +97,22 @@ export async function GET(req: NextRequest) {
         total: dMap.get(d.id) ?? 0,
       }));
       const weekTotal = perDriver.reduce((s, x) => s + x.total, 0);
-      return { weekStart: wk, perDriver, weekTotal };
+      const weekPrefs = (byWeekPref.get(wk) ?? []).map((pf) => ({
+        id: pf.id,
+        amount: Number(pf.amount),
+        note: pf.note,
+        vehiclePlate: pf.driver?.vehiclePlate ?? null,
+        driverName: pf.driver?.fullName ?? null,
+        driverCode: pf.driver?.code ?? null,
+      }));
+      const totalPrefs = weekPrefs.reduce((s, pf) => s + pf.amount, 0);
+      return { weekStart: wk, perDriver, weekTotal, prefinancements: weekPrefs, totalPrefs };
     });
 
     const grandTotal = rows.reduce((s, r) => s + r.weekTotal, 0);
+    const grandTotalPrefs = rows.reduce((s, r) => s + r.totalPrefs, 0);
 
-    return NextResponse.json({ owner, drivers, rows, grandTotal });
+    return NextResponse.json({ owner, drivers, rows, grandTotal, grandTotalPrefs });
   } catch (err) {
     return handleAccessError(err);
   }

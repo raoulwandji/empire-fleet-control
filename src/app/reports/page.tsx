@@ -15,10 +15,21 @@ type DriverRow = {
   total: number;
 };
 
+type PrefRow = {
+  id: string;
+  amount: number;
+  note: string | null;
+  vehiclePlate: string | null;
+  driverName: string | null;
+  driverCode: string | null;
+};
+
 type WeekRow = {
   weekStart: string;
   perDriver: DriverRow[];
   weekTotal: number;
+  prefinancements: PrefRow[];
+  totalPrefs: number;
 };
 
 type ReportData = {
@@ -26,6 +37,7 @@ type ReportData = {
   drivers: { id: string; fullName: string; vehiclePlate: string; code: string }[];
   rows: WeekRow[];
   grandTotal: number;
+  grandTotalPrefs: number;
 };
 
 function fmtAmount(v: number) {
@@ -120,11 +132,7 @@ export default function ReportsPage() {
             </div>
           </div>
           <div className="flex gap-3 pt-1">
-            <button
-              onClick={loadReport}
-              disabled={!ownerId || loading}
-              className="btn-primary"
-            >
+            <button onClick={loadReport} disabled={!ownerId || loading} className="btn-primary">
               {loading ? 'Chargement…' : 'Générer le rapport'}
             </button>
             {report && report.rows.length > 0 && (
@@ -141,59 +149,120 @@ export default function ReportsPage() {
         {/* Résultats */}
         {report && (
           <div className="space-y-4">
-            {/* En-tête propriétaire */}
-            <div className="card p-4 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
-              <div>
-                <p className="text-lg font-bold text-hud-cyan">{report.owner.fullName}</p>
-                <p className="text-sm text-gray-400">{report.owner.phone}{report.owner.location ? ` — ${report.owner.location}` : ''}</p>
-                <p className="text-xs text-gray-500 mt-1">{report.drivers.length} véhicule(s) actif(s)</p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs text-gray-500 uppercase tracking-widest">Total cumulé</p>
-                <p className="text-2xl font-bold text-green-400">{fmtAmount(report.grandTotal)}</p>
-                <p className="text-xs text-gray-500">{report.rows.length} semaine(s)</p>
+            {/* En-tête propriétaire — 3 totaux */}
+            <div className="card p-4">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
+                <div>
+                  <p className="text-lg font-bold text-hud-cyan">{report.owner.fullName}</p>
+                  <p className="text-sm text-gray-400">{report.owner.phone}{report.owner.location ? ` — ${report.owner.location}` : ''}</p>
+                  <p className="text-xs text-gray-500 mt-1">{report.drivers.length} véhicule(s) · {report.rows.length} semaine(s)</p>
+                </div>
+                <div className="flex gap-4 sm:gap-6 text-right">
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-widest">Versements bruts</p>
+                    <p className="text-xl font-bold text-green-400">{fmtAmount(report.grandTotal)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-widest">Préfinancements</p>
+                    <p className="text-xl font-bold text-yellow-400">− {fmtAmount(report.grandTotalPrefs)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-widest">Net à verser</p>
+                    <p className="text-xl font-bold text-hud-cyan">{fmtAmount(report.grandTotal - report.grandTotalPrefs)}</p>
+                  </div>
+                </div>
               </div>
             </div>
 
             {report.rows.length === 0 ? (
               <div className="card p-6 text-center text-gray-500">Aucun versement sur cette période.</div>
             ) : (
-              report.rows.map((row) => (
-                <div key={row.weekStart} className="card overflow-hidden">
-                  <div className="flex items-center justify-between px-4 py-3 bg-hud-cyan/5 border-b border-hud-line">
-                    <span className="text-sm font-semibold text-hud-cyan">{fmtWeek(row.weekStart)}</span>
-                    <span className="text-sm font-bold text-green-400">{fmtAmount(row.weekTotal)}</span>
+              report.rows.map((row) => {
+                const net = row.weekTotal - row.totalPrefs;
+                return (
+                  <div key={row.weekStart} className="card overflow-hidden">
+                    {/* En-tête semaine */}
+                    <div className="flex items-center justify-between px-4 py-3 bg-hud-cyan/5 border-b border-hud-line">
+                      <span className="text-sm font-semibold text-hud-cyan">{fmtWeek(row.weekStart)}</span>
+                      <div className="flex items-center gap-4 text-sm">
+                        <span className="text-gray-400">Brut : <span className="font-bold text-green-400">{fmtAmount(row.weekTotal)}</span></span>
+                        {row.totalPrefs > 0 && (
+                          <span className="text-gray-400">Préfin. : <span className="font-bold text-yellow-400">− {fmtAmount(row.totalPrefs)}</span></span>
+                        )}
+                        <span className="text-gray-400">Net : <span className={`font-bold ${net >= 0 ? 'text-hud-cyan' : 'text-empire-rougeVif'}`}>{fmtAmount(net)}</span></span>
+                      </div>
+                    </div>
+
+                    {/* Versements par véhicule */}
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-xs text-gray-500 uppercase tracking-wider border-b border-hud-line bg-hud-panel2/50">
+                          <th className="px-4 py-2 text-left">Véhicule</th>
+                          <th className="px-4 py-2 text-left">Chauffeur</th>
+                          <th className="px-4 py-2 text-right">Versement</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {row.perDriver.filter((d) => d.total > 0).map((d) => (
+                          <tr key={d.driverId} className="border-b border-hud-line/40 hover:bg-hud-cyan/3 transition-colors">
+                            <td className="px-4 py-2 font-mono text-hud-cyan font-semibold">{d.vehiclePlate}</td>
+                            <td className="px-4 py-2 text-gray-300">
+                              {d.fullName}
+                              <span className="ml-2 text-xs text-gray-500">({d.code})</span>
+                            </td>
+                            <td className="px-4 py-2 text-right font-semibold text-green-400">{fmtAmount(d.total)}</td>
+                          </tr>
+                        ))}
+                        {row.perDriver.every((d) => d.total === 0) && (
+                          <tr className="border-b border-hud-line/20">
+                            <td colSpan={3} className="px-4 py-2 text-xs text-gray-600 italic">Aucun versement cette semaine</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+
+                    {/* Préfinancements de la semaine */}
+                    {row.prefinancements.length > 0 && (
+                      <div className="border-t border-yellow-400/20 bg-yellow-400/3">
+                        <div className="px-4 py-2 flex items-center gap-2">
+                          <span className="text-xs font-semibold text-yellow-400 uppercase tracking-widest">Préfinancements Empire</span>
+                          <span className="text-xs text-yellow-400/70">({row.prefinancements.length})</span>
+                        </div>
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="text-xs text-gray-500 uppercase tracking-wider border-b border-yellow-400/10 bg-yellow-400/5">
+                              <th className="px-4 py-1.5 text-left">Véhicule concerné</th>
+                              <th className="px-4 py-1.5 text-left">Objet</th>
+                              <th className="px-4 py-1.5 text-right">Montant</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {row.prefinancements.map((pf) => (
+                              <tr key={pf.id} className="border-b border-yellow-400/10">
+                                <td className="px-4 py-2 font-mono text-yellow-300 text-xs">
+                                  {pf.vehiclePlate ? (
+                                    <>{pf.vehiclePlate} <span className="text-gray-500">— {pf.driverName} ({pf.driverCode})</span></>
+                                  ) : (
+                                    <span className="text-gray-500 italic">Non spécifié</span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-2 text-gray-400 text-xs italic">{pf.note ?? '—'}</td>
+                                <td className="px-4 py-2 text-right font-semibold text-yellow-400">− {fmtAmount(pf.amount)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr className="bg-yellow-400/5">
+                              <td colSpan={2} className="px-4 py-2 text-xs text-yellow-400/70 text-right font-semibold uppercase tracking-wider">Total préfinancements semaine</td>
+                              <td className="px-4 py-2 text-right font-bold text-yellow-400">− {fmtAmount(row.totalPrefs)}</td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    )}
                   </div>
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-xs text-gray-500 uppercase tracking-wider border-b border-hud-line">
-                        <th className="px-4 py-2 text-left">Véhicule</th>
-                        <th className="px-4 py-2 text-left">Chauffeur</th>
-                        <th className="px-4 py-2 text-right">Versement</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {row.perDriver.filter((d) => d.total > 0).map((d) => (
-                        <tr key={d.driverId} className="border-b border-hud-line/40 hover:bg-hud-cyan/3 transition-colors">
-                          <td className="px-4 py-2 font-mono text-hud-cyan font-semibold">{d.vehiclePlate}</td>
-                          <td className="px-4 py-2 text-gray-300">
-                            {d.fullName}
-                            <span className="ml-2 text-xs text-gray-500">({d.code})</span>
-                          </td>
-                          <td className="px-4 py-2 text-right font-semibold text-green-400">{fmtAmount(d.total)}</td>
-                        </tr>
-                      ))}
-                      {row.perDriver.filter((d) => d.total === 0).length > 0 && (
-                        <tr className="border-b border-hud-line/20">
-                          <td colSpan={3} className="px-4 py-1.5 text-xs text-gray-600 italic">
-                            {row.perDriver.filter((d) => d.total === 0).map((d) => d.vehiclePlate).join(', ')} — aucun versement cette semaine
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         )}
