@@ -15,6 +15,8 @@ type PendingDriver = {
   comment: string | null;
 };
 
+type Owner = { id: string; fullName: string; phone: string; location: string | null };
+
 export default function NewDriverPage() {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
@@ -24,16 +26,27 @@ export default function NewDriverPage() {
   const [pendingDrivers, setPendingDrivers] = useState<PendingDriver[]>([]);
   const [selectedPendingId, setSelectedPendingId] = useState('');
 
-  // Champs contrôlés pour pouvoir les pré-remplir depuis la liste d'attente
+  // Champs chauffeur contrôlés
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [location, setLocation] = useState('');
   const [licenseNumber, setLicenseNumber] = useState('');
 
+  // Propriétaire
+  const [owners, setOwners] = useState<Owner[]>([]);
+  const [selectedOwnerId, setSelectedOwnerId] = useState('');
+  const [ownerName, setOwnerName] = useState('');
+  const [ownerPhone, setOwnerPhone] = useState('');
+  const [ownerLocation, setOwnerLocation] = useState('');
+
   useEffect(() => {
     fetch('/api/pending-drivers')
       .then((r) => r.json())
       .then(setPendingDrivers)
+      .catch(() => {});
+    fetch('/api/owners')
+      .then((r) => r.json())
+      .then(setOwners)
       .catch(() => {});
   }, []);
 
@@ -49,6 +62,21 @@ export default function NewDriverPage() {
     setContractType(p.contractType);
   }
 
+  function handleSelectOwner(id: string) {
+    setSelectedOwnerId(id);
+    if (!id) {
+      setOwnerName('');
+      setOwnerPhone('');
+      setOwnerLocation('');
+      return;
+    }
+    const o = owners.find((o) => o.id === id);
+    if (!o) return;
+    setOwnerName(o.fullName);
+    setOwnerPhone(o.phone);
+    setOwnerLocation(o.location ?? '');
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError('');
@@ -61,9 +89,10 @@ export default function NewDriverPage() {
       location: form.get('location'),
       licenseNumber: form.get('licenseNumber'),
       contractType,
-      ownerName: form.get('ownerName'),
-      ownerPhone: form.get('ownerPhone'),
-      ownerLocation: form.get('ownerLocation'),
+      ownerId: selectedOwnerId || undefined,
+      ownerName,
+      ownerPhone,
+      ownerLocation,
       guarantorName: form.get('guarantorName'),
       guarantorPhone: form.get('guarantorPhone'),
       vehicleBrand: form.get('vehicleBrand'),
@@ -97,7 +126,6 @@ export default function NewDriverPage() {
 
     const driver = await res.json();
 
-    // Suppression automatique de la liste d'attente si un chauffeur y était sélectionné
     if (selectedPendingId) {
       await fetch(`/api/pending-drivers/${selectedPendingId}`, { method: 'DELETE' });
     }
@@ -124,10 +152,6 @@ export default function NewDriverPage() {
               <div className="w-1 h-4 rounded-full bg-hud-cyan shadow-neon" />
               <span className="hud-label !mb-0">Importer depuis la liste d'attente</span>
             </div>
-            <p className="text-xs text-gray-500 mb-3">
-              Sélectionne un chauffeur en attente pour pré-remplir ses informations.
-              Il sera automatiquement retiré de la liste d'attente après création.
-            </p>
             <select
               value={selectedPendingId}
               onChange={(e) => handleSelectPending(e.target.value)}
@@ -136,16 +160,10 @@ export default function NewDriverPage() {
               <option value="">— Sélectionner un chauffeur en attente —</option>
               {pendingDrivers.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.fullName} · {p.phone} · {p.contractType === 'CONDITION_VENTE' ? 'Condition-Vente' : 'Location'} · Caution versée : {Number(p.cautionPaid).toLocaleString('fr-FR')} FCFA
+                  {p.fullName} · {p.phone} · {p.contractType === 'CONDITION_VENTE' ? 'Condition-Vente' : 'Location'}
                 </option>
               ))}
             </select>
-            {selectedPendingId && (
-              <div className="mt-2 flex items-center gap-2 text-xs text-hud-green">
-                <span>✓</span>
-                <span>Formulaire pré-rempli — ce chauffeur sera supprimé de la liste d'attente à la création.</span>
-              </div>
-            )}
           </div>
         )}
 
@@ -169,10 +187,38 @@ export default function NewDriverPage() {
           </div>
 
           <Separator label="Propriétaire & Garant" />
+
+          {/* Sélection propriétaire existant */}
+          {owners.length > 0 && (
+            <div className="bg-hud-panel2 border border-hud-cyan/20 rounded-lg p-3 space-y-2">
+              <label className="hud-label">Sélectionner un propriétaire existant</label>
+              <select value={selectedOwnerId} onChange={(e) => handleSelectOwner(e.target.value)} className="hud-select w-full">
+                <option value="">— Nouveau propriétaire (saisie manuelle) —</option>
+                {owners.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.fullName} · {o.phone}{o.location ? ` · ${o.location}` : ''}
+                  </option>
+                ))}
+              </select>
+              {selectedOwnerId && (
+                <p className="text-xs text-hud-cyan">✓ Propriétaire sélectionné — champs pré-remplis ci-dessous</p>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
-            <Field name="ownerName" label="Nom du propriétaire" required />
-            <Field name="ownerPhone" label="Téléphone propriétaire" required />
-            <Field name="ownerLocation" label="Localisation propriétaire" required />
+            <div>
+              <label className="hud-label">Nom du propriétaire *</label>
+              <input className="hud-input" value={ownerName} onChange={(e) => setOwnerName(e.target.value)} required />
+            </div>
+            <div>
+              <label className="hud-label">Téléphone propriétaire *</label>
+              <input className="hud-input" value={ownerPhone} onChange={(e) => setOwnerPhone(e.target.value)} required />
+            </div>
+            <div>
+              <label className="hud-label">Localisation propriétaire</label>
+              <input className="hud-input" value={ownerLocation} onChange={(e) => setOwnerLocation(e.target.value)} />
+            </div>
             <Field name="guarantorName" label="Nom du garant" required />
             <Field name="guarantorPhone" label="Téléphone garant" required />
           </div>

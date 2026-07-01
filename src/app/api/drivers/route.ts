@@ -85,6 +85,7 @@ export async function POST(req: NextRequest) {
         location: data.location,
         licenseNumber: data.licenseNumber,
         contractType: data.contractType,
+        ownerId: data.ownerId || undefined,
         ownerName: data.ownerName,
         ownerPhone: data.ownerPhone,
         ownerLocation: data.ownerLocation,
