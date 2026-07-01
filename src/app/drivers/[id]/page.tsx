@@ -33,8 +33,9 @@ export default function DriverDetailPage() {
   if (!driver) return <Shell><p className="text-empire-rougeVif">Chauffeur introuvable.</p></Shell>;
 
   const isAdmin = session?.user.role === 'ADMIN';
+  const isManager = session?.user.role === 'MANAGER';
   const isAssigned = driver.assignments.some((a: any) => a.employee.id === session?.user.id);
-  const canWrite = isAdmin || isAssigned;
+  const canWrite = isAdmin || isManager || isAssigned;
   const isCV = driver.contractType === 'CONDITION_VENTE';
 
   async function handleDelete() {

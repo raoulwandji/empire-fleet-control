@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
@@ -10,10 +10,9 @@ import AvatarUploader from './AvatarUploader';
 import CredentialsEditor from './CredentialsEditor';
 
 const links = [
-  { href: '/dashboard', label: 'Tableau de bord' },
+  { href: '/dashboard', label: 'Accueil' },
   { href: '/drivers', label: 'Chauffeurs' },
   { href: '/pending-drivers', label: 'En attente' },
-  { href: '/chat', label: 'Chat' },
   { href: '/users', label: 'Utilisateurs', managerOnly: true },
   { href: '/assignments', label: 'Affectations', managerOnly: true },
 ];
@@ -26,6 +25,7 @@ function roleLabel(role?: string) {
 
 export default function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { data: session } = useSession();
   const role = session?.user.role;
   const isAdminOrManager = role === 'ADMIN' || role === 'MANAGER';
@@ -101,6 +101,22 @@ export default function Navbar() {
             );
           })}
       </div>
+
+      {/* Bouton Chat — toujours visible */}
+      <button
+        onClick={() => router.push('/chat')}
+        title="Chat"
+        className={clsx(
+          'shrink-0 w-8 h-8 rounded-full flex items-center justify-center border transition-all',
+          pathname?.startsWith('/chat')
+            ? 'border-hud-cyan/60 bg-hud-cyan/15 text-hud-cyan shadow-neon'
+            : 'border-hud-line text-gray-400 hover:text-hud-cyan hover:border-hud-cyan/40'
+        )}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+          <path fillRule="evenodd" d="M2 5a2 2 0 012-2h12a2 2 0 012 2v7a2 2 0 01-2 2H6l-4 4V5z" clipRule="evenodd" />
+        </svg>
+      </button>
 
       {/* Bouton profil — toujours visible à droite */}
       <button
