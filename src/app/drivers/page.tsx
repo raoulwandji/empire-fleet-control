@@ -15,6 +15,24 @@ type Driver = {
   paidToday: boolean;
 };
 
+// Jour de la veille (0=dim, 1=lun, 2=mar, ..., 6=sam)
+const yesterday = new Date();
+yesterday.setDate(yesterday.getDate() - 1);
+const yesterdayDay = yesterday.getDay(); // 0=dimanche, 2=mardi
+
+function PaymentBadge({ paidToday }: { paidToday: boolean }) {
+  if (paidToday) {
+    return <span className="flex items-center gap-1.5 text-emerald-400 text-xs font-semibold"><span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse inline-block" />Versé hier</span>;
+  }
+  if (yesterdayDay === 0) {
+    return <span className="flex items-center gap-1.5 text-sky-400 text-xs font-semibold"><span className="w-2 h-2 rounded-full bg-sky-400 inline-block" />Dimanche — Jour free</span>;
+  }
+  if (yesterdayDay === 2) {
+    return <span className="flex items-center gap-1.5 text-purple-400 text-xs font-semibold"><span className="w-2 h-2 rounded-full bg-purple-400 inline-block" />Mardi — Jour de repos</span>;
+  }
+  return <span className="flex items-center gap-1.5 text-red-400 text-xs font-semibold"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />En attente</span>;
+}
+
 export default function DriversPage() {
   const { data: session } = useSession();
   const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -116,13 +134,13 @@ export default function DriversPage() {
               ) : drivers.length === 0 ? (
                 <tr><td colSpan={10} className="text-center text-gray-600 py-8 italic">Aucun chauffeur trouvé.</td></tr>
               ) : drivers.map((d) => (
-                <tr key={d.id} className={d.paidToday ? 'bg-emerald-900/20 border-l-2 border-emerald-500' : 'bg-red-900/15 border-l-2 border-red-700'}>
-                  <td>
-                    {d.paidToday
-                      ? <span className="flex items-center gap-1.5 text-emerald-400 text-xs font-semibold"><span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse inline-block" />Versé hier</span>
-                      : <span className="flex items-center gap-1.5 text-red-400 text-xs font-semibold"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />En attente</span>
-                    }
-                  </td>
+                <tr key={d.id} className={
+                  d.paidToday ? 'bg-emerald-900/20 border-l-2 border-emerald-500'
+                  : yesterdayDay === 0 ? 'bg-sky-900/10 border-l-2 border-sky-600'
+                  : yesterdayDay === 2 ? 'bg-purple-900/10 border-l-2 border-purple-600'
+                  : 'bg-red-900/15 border-l-2 border-red-700'
+                }>
+                  <td><PaymentBadge paidToday={d.paidToday} /></td>
                   <td>
                     <Link href={`/drivers/${d.id}`} className="neon-link font-mono font-bold">{d.code}</Link>
                   </td>
