@@ -7,8 +7,15 @@ import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import { formatFCFA } from '@/lib/business';
 import clsx from 'clsx';
-import DriversEvolutionChart from '@/components/DriversEvolutionChart';
-import CommissionsEvolutionChart from '@/components/CommissionsEvolutionChart';
+import dynamic from 'next/dynamic';
+
+const chartLoader = () => (
+  <div className="card p-6 flex items-center justify-center h-72">
+    <div className="w-8 h-8 border-2 border-hud-cyan border-t-transparent rounded-full animate-spin" />
+  </div>
+);
+const DriversEvolutionChart = dynamic(() => import('@/components/DriversEvolutionChart'), { ssr: false, loading: chartLoader });
+const CommissionsEvolutionChart = dynamic(() => import('@/components/CommissionsEvolutionChart'), { ssr: false, loading: chartLoader });
 
 type Ranked = { driverId: string; code: string; fullName: string; totalRides: number; totalHours: number };
 type ProgressRow = { driverId: string; code: string; fullName: string; totalFixed: number; totalPaid: number; resteAPayer: number; percent: number };

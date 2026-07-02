@@ -101,7 +101,7 @@ export default function Navbar() {
   }, [menuOpen]);
 
   return (
-    <nav className="sticky top-0 z-50 bg-hud-panel/80 backdrop-blur-md border-b border-hud-cyan/20 px-4 py-3 flex items-center gap-2">
+    <nav className="sticky top-0 z-50 border-b-2 border-empire-rouge px-4 py-3 flex items-center gap-2" style={{ background: 'linear-gradient(135deg, #14100e 0%, #241d19 100%)' }}>
       {/* Logo — toujours visible */}
       <div className="flex items-center gap-3 shrink-0">
         <div className="relative w-9 h-9 rounded-lg overflow-hidden ring-1 ring-hud-cyan/50 shadow-neon">
@@ -125,8 +125,8 @@ export default function Navbar() {
                 className={clsx(
                   'px-3 py-1.5 rounded-lg transition-all duration-150 border whitespace-nowrap shrink-0',
                   active
-                    ? 'border-hud-cyan/50 text-hud-cyan bg-hud-cyan/10 shadow-neon'
-                    : 'border-transparent text-gray-400 hover:text-gray-100 hover:border-hud-line'
+                    ? 'border-hud-green/60 bg-hud-green/15 shadow-neon !text-white'
+                    : 'border-transparent hover:border-hud-green/40 !text-gray-300 hover:!text-white'
                 )}
               >
                 {l.label}

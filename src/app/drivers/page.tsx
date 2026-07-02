@@ -54,7 +54,7 @@ export default function DriversPage() {
   const fetchDrivers = useCallback(async () => {
     setLoading(true);
     const res = await fetch(`/api/drivers?${buildQuery()}`);
-    setDrivers(await res.json());
+    { const d = await res.json(); setDrivers(Array.isArray(d) ? d : []); }
     setLoading(false);
   }, [buildQuery]);
 

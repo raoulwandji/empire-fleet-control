@@ -73,7 +73,7 @@ export default function ChatPage() {
     const res = await fetch('/api/chat');
     if (res.ok) {
       const data: Message[] = await res.json();
-      setMessages(data.reverse()); // API retourne du plus récent, on inverse pour affichage
+      setMessages(Array.isArray(data) ? data.reverse() : []); // API retourne du plus récent, on inverse pour affichage
     }
   }, []);
 
@@ -96,7 +96,7 @@ export default function ChatPage() {
   useEffect(() => {
     fetch('/api/users')
       .then((r) => r.ok ? r.json() : [])
-      .then((data) => setUsers(data.map((u: any) => ({ id: u.id, username: u.username, fullName: u.fullName }))));
+      .then((data) => setUsers((Array.isArray(data) ? data : []).map((u: any) => ({ id: u.id, username: u.username, fullName: u.fullName }))));
   }, []);
 
   // Scroll vers le bas quand de nouveaux messages arrivent

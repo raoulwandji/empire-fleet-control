@@ -23,7 +23,7 @@ export default function OwnersPage() {
   useEffect(() => {
     fetch('/api/owners')
       .then((r) => r.json())
-      .then((data) => { setOwners(data); setLoading(false); });
+      .then((data) => { setOwners(Array.isArray(data) ? data : []); setLoading(false); });
   }, []);
 
   async function handleCreate(e: React.FormEvent) {

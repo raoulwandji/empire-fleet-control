@@ -2,6 +2,7 @@ import { type NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
+import { isBlocked, recordFailure, clearFailures } from '@/lib/rateLimit';
 
 export const authOptions: NextAuthOptions = {
   session: { strategy: 'jwt' },
@@ -16,14 +17,26 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         if (!credentials?.username || !credentials?.password) return null;
 
+        const key = credentials.username.toLowerCase();
+        if (isBlocked(key)) {
+          throw new Error('Trop de tentatives. Réessayez dans 15 minutes.');
+        }
+
         const user = await prisma.user.findUnique({
           where: { username: credentials.username },
         });
 
-        if (!user || !user.active) return null;
+        if (!user || !user.active) {
+          recordFailure(key);
+          return null;
+        }
 
         const valid = await bcrypt.compare(credentials.password, user.passwordHash);
-        if (!valid) return null;
+        if (!valid) {
+          recordFailure(key);
+          return null;
+        }
+        clearFailures(key);
 
         return {
           id: user.id,
