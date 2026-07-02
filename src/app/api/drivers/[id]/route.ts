@@ -35,18 +35,31 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       .filter((w) => !w.penaltyApplied)
       .reduce((sum, w) => sum + Number(w.computedPenalty), 0);
     const totalComputedPenalties = appliedPenalties + pendingPenalties;
-    const resteAPayer =
-      driver.contractType === 'CONDITION_VENTE'
-        ? Number(driver.totalPriceFixed ?? 0) - totalPaid + appliedPenalties
-        : null;
-    const cautionBalance =
-      driver.contractType === 'LOCATION'
-        ? driver.cautionMovements.reduce((sum, m) => sum + Number(m.amount), 0)
-        : null;
+
+    // Solde caution : calculé pour les deux types de contrat.
+    const cautionBalance = driver.cautionMovements.reduce((sum, m) => sum + Number(m.amount), 0);
+
+    // En Condition-Vente, la caution est une avance de remboursement :
+    // elle s'ajoute au total versé et se déduit du reste à verser.
+    const isCV = driver.contractType === 'CONDITION_VENTE';
+    const cautionAdvance = isCV ? cautionBalance : 0;
+    const totalPaidWithAdvance = totalPaid + cautionAdvance;
+    const resteAPayer = isCV
+      ? Number(driver.totalPriceFixed ?? 0) - totalPaidWithAdvance + appliedPenalties
+      : null;
 
     return NextResponse.json({
       ...driver,
-      summary: { totalPaid, appliedPenalties, pendingPenalties, totalComputedPenalties, resteAPayer, cautionBalance },
+      summary: {
+        totalPaid,
+        cautionAdvance,
+        totalPaidWithAdvance,
+        appliedPenalties,
+        pendingPenalties,
+        totalComputedPenalties,
+        resteAPayer,
+        cautionBalance,
+      },
     });
   } catch (err) {
     return handleAccessError(err);

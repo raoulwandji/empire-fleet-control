@@ -32,12 +32,11 @@ export async function POST(req: NextRequest) {
     await requireDriverWriteAccess(session.user.id, session.user.role, data.driverId);
 
     const driver = await prisma.driver.findUnique({ where: { id: data.driverId } });
-    if (!driver || driver.contractType !== 'LOCATION') {
-      return NextResponse.json(
-        { error: 'La caution ne concerne que les chauffeurs en Location.' },
-        { status: 400 }
-      );
+    if (!driver) {
+      return NextResponse.json({ error: 'Chauffeur introuvable.' }, { status: 404 });
     }
+    // En Location : caution classique. En Condition-Vente : avance de remboursement
+    // déduite du reste à verser pour l'acquisition du véhicule.
 
     const isDeduction = data.type === 'DEDUCTION_PANNE' || data.type === 'DEDUCTION_SANCTION' || data.type === 'RETRAIT';
     const signedAmount = isDeduction ? -Math.abs(data.amount) : Math.abs(data.amount);

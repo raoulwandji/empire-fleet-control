@@ -106,19 +106,25 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    if (data.contractType === 'LOCATION' && data.cautionReference) {
-      const movement = await prisma.cautionMovement.create({
+    // Caution / avance versée à la création — pour LOCATION comme pour CONDITION-VENTE.
+    // En Condition-Vente, cette caution est une avance de remboursement qui sera
+    // déduite du reste à verser pour l'acquisition du véhicule.
+    if (data.cautionReference && data.cautionReference > 0) {
+      const reason =
+        data.contractType === 'CONDITION_VENTE'
+          ? 'Avance / caution initiale (déduite du reste à verser)'
+          : 'Dépôt initial à la création du profil';
+      await prisma.cautionMovement.create({
         data: {
           driverId: driver.id,
           date: new Date(),
           type: 'DEPOT_INITIAL',
           amount: data.cautionReference,
-          reason: 'Dépôt initial à la création du profil',
+          reason,
           resultBalance: data.cautionReference,
           enteredById: session.user.id,
         },
       });
-      void movement;
     }
 
     await logAudit(session.user.id, 'CREATE_DRIVER', 'Driver', driver.id, { code });

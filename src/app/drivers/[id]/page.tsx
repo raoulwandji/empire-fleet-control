@@ -86,8 +86,8 @@ export default function DriverDetailPage() {
           <>
             <StatCard label="Montant fixé" value={formatFCFA(Number(driver.totalPriceFixed ?? 0))} />
             <StatCard label="Total versé" value={formatFCFA(driver.summary.totalPaid)} accent />
+            <StatCard label="Avance / caution" value={formatFCFA(driver.summary.cautionAdvance ?? 0)} accent />
             <StatCard label="Pénalités appliquées" value={formatFCFA(driver.summary.appliedPenalties)} />
-            <StatCard label="Pénalités en attente" value={formatFCFA(driver.summary.pendingPenalties)} danger={driver.summary.pendingPenalties > 0} />
             <StatCard label="Reste à payer" value={formatFCFA(driver.summary.resteAPayer)} highlight />
           </>
         ) : (
@@ -104,7 +104,7 @@ export default function DriverDetailPage() {
 
       {/* Onglets */}
       <div className="flex gap-1 mb-6 border-b border-hud-line overflow-x-auto">
-        {TABS.filter((t) => t !== 'Caution' || !isCV).map((t) => (
+        {TABS.map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -115,14 +115,14 @@ export default function DriverDetailPage() {
                 : 'border-transparent text-gray-500 hover:text-gray-300'
             )}
           >
-            {t}
+            {t === 'Caution' && isCV ? 'Avance / caution' : t}
           </button>
         ))}
       </div>
 
       {tab === 'Profil' && <ProfileTab driver={driver} canWrite={canWrite} onChange={fetchDriver} />}
       {tab === 'Versements/Loyers' && <PaymentsTab driver={driver} canWrite={canWrite} onChange={fetchDriver} />}
-      {tab === 'Caution' && !isCV && <CautionTab driver={driver} canWrite={canWrite} onChange={fetchDriver} />}
+      {tab === 'Caution' && <CautionTab driver={driver} canWrite={canWrite} onChange={fetchDriver} isCV={isCV} />}
       {tab === 'Suivi hebdo' && <WeeklyTab driver={driver} canWrite={canWrite} onChange={fetchDriver} />}
       {tab === 'Commentaires' && <CommentsTab driver={driver} canWrite={canWrite} onChange={fetchDriver} />}
     </Shell>
@@ -435,9 +435,16 @@ const CAUTION_TYPES = [
   { value: 'RETRAIT', label: 'Retrait' },
 ];
 
-function CautionTab({ driver, canWrite, onChange }: { driver: DriverDetail; canWrite: boolean; onChange: () => void }) {
+// En Condition-Vente, la caution est une avance : on n'expose que l'ajout d'avance et le retrait.
+const CV_ADVANCE_TYPES = [
+  { value: 'RECHARGE_VOLONTAIRE', label: 'Avance versée' },
+  { value: 'RETRAIT', label: 'Retrait / remboursement' },
+];
+
+function CautionTab({ driver, canWrite, onChange, isCV }: { driver: DriverDetail; canWrite: boolean; onChange: () => void; isCV?: boolean }) {
+  const types = isCV ? CV_ADVANCE_TYPES : CAUTION_TYPES;
   const [date, setDate] = useState('');
-  const [type, setType] = useState('RECHARGE_VOLONTAIRE');
+  const [type, setType] = useState(types[0].value);
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
@@ -452,6 +459,12 @@ function CautionTab({ driver, canWrite, onChange }: { driver: DriverDetail; canW
 
   return (
     <div className="space-y-4">
+      {isCV && (
+        <div className="card p-3 border-l-4 border-hud-green text-xs text-gray-700 font-semibold">
+          En Condition-Vente, la caution est une <span className="text-hud-green">avance de remboursement</span> :
+          elle s'ajoute au total versé et se déduit automatiquement du reste à verser pour l'acquisition du véhicule.
+        </div>
+      )}
       {canWrite && (
         <form onSubmit={handleSubmit} className="card p-4 flex flex-wrap gap-3 items-end">
           <div>
@@ -461,7 +474,7 @@ function CautionTab({ driver, canWrite, onChange }: { driver: DriverDetail; canW
           <div>
             <label className="hud-label">Type de mouvement</label>
             <select value={type} onChange={(e) => setType(e.target.value)} className="form-select w-44">
-              {CAUTION_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              {types.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
           </div>
           <div>

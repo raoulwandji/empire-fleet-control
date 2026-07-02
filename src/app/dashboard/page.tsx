@@ -18,7 +18,7 @@ const DriversEvolutionChart = dynamic(() => import('@/components/DriversEvolutio
 const CommissionsEvolutionChart = dynamic(() => import('@/components/CommissionsEvolutionChart'), { ssr: false, loading: chartLoader });
 
 type Ranked = { driverId: string; code: string; fullName: string; totalRides: number; totalHours: number };
-type ProgressRow = { driverId: string; code: string; fullName: string; totalFixed: number; totalPaid: number; resteAPayer: number; percent: number };
+type ProgressRow = { driverId: string; code: string; fullName: string; totalFixed: number; totalPaid: number; cautionAdvance: number; totalPaidWithAdvance: number; resteAPayer: number; percent: number };
 type SanctionRow = { driverId: string; code: string; fullName: string; contractType: string; totalPenalty: number; count: number };
 type WeeklyStatusRow = { driverId: string; code: string; fullName: string; contractType: string; expectedDays: number; daysPaid: number; totalAmount: number; status: 'complete' | 'partial' | 'none' };
 
@@ -423,6 +423,11 @@ function ProgressPanel() {
                   {r.fullName} <span className="text-gray-600 font-mono text-xs">({r.code})</span>
                 </span>
                 <span className="font-display text-xs">
+                  {r.cautionAdvance > 0 && (
+                    <span className="text-hud-green/80 mr-2" title="Avance / caution incluse">
+                      +av. {formatFCFA(r.cautionAdvance)}
+                    </span>
+                  )}
                   <span className="text-hud-green font-bold">{r.percent}%</span>
                   <span className="text-gray-500 ml-2">reste {formatFCFA(r.resteAPayer)}</span>
                 </span>

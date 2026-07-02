@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
       include: {
         payments: { select: { amount: true } },
         weeklyTrackings: { where: { penaltyApplied: true }, select: { computedPenalty: true } },
+        cautionMovements: { select: { amount: true } },
       },
     });
 
@@ -24,9 +25,12 @@ export async function GET(req: NextRequest) {
       .map((d) => {
         const totalPaid = d.payments.reduce((sum, p) => sum + Number(p.amount), 0);
         const appliedPenalties = d.weeklyTrackings.reduce((sum, w) => sum + Number(w.computedPenalty), 0);
+        // La caution du CV est une avance de remboursement : comptée dans la progression.
+        const cautionAdvance = d.cautionMovements.reduce((sum, m) => sum + Number(m.amount), 0);
         const totalFixed = Number(d.totalPriceFixed ?? 0);
-        const resteAPayer = totalFixed - totalPaid + appliedPenalties;
-        const percent = totalFixed > 0 ? Math.min(100, (totalPaid / totalFixed) * 100) : 0;
+        const totalPaidWithAdvance = totalPaid + cautionAdvance;
+        const resteAPayer = totalFixed - totalPaidWithAdvance + appliedPenalties;
+        const percent = totalFixed > 0 ? Math.min(100, (totalPaidWithAdvance / totalFixed) * 100) : 0;
 
         return {
           driverId: d.id,
@@ -34,6 +38,8 @@ export async function GET(req: NextRequest) {
           fullName: d.fullName,
           totalFixed,
           totalPaid,
+          cautionAdvance,
+          totalPaidWithAdvance,
           appliedPenalties,
           resteAPayer,
           percent: Math.round(percent * 10) / 10,

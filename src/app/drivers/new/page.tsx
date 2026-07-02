@@ -35,8 +35,8 @@ export default function NewDriverPage() {
   const [licenseNumber, setLicenseNumber] = useState('');
 
   useEffect(() => {
-    fetch('/api/pending-drivers').then((r) => r.json()).then(setPendingDrivers).catch(() => {});
-    fetch('/api/owners').then((r) => r.json()).then(setOwners).catch(() => setOwners([]));
+    fetch('/api/pending-drivers').then((r) => r.json()).then((d) => setPendingDrivers(Array.isArray(d) ? d : [])).catch(() => {});
+    fetch('/api/owners').then((r) => r.json()).then((d) => setOwners(Array.isArray(d) ? d : [])).catch(() => setOwners([]));
   }, []);
 
   function handleSelectPending(id: string) {
@@ -83,6 +83,10 @@ export default function NewDriverPage() {
 
     if (contractType === 'CONDITION_VENTE') {
       payload.totalPriceFixed = Number(form.get('totalPriceFixed'));
+      // Caution / avance versée à l'acquisition (optionnelle) — déduite du reste à verser.
+      if (form.get('cautionReference')) {
+        payload.cautionReference = Number(form.get('cautionReference'));
+      }
     } else {
       payload.cautionReference = Number(form.get('cautionReference'));
       payload.cautionMinThreshold = form.get('cautionMinThreshold') ? Number(form.get('cautionMinThreshold')) : undefined;
@@ -247,7 +251,10 @@ export default function NewDriverPage() {
               <Separator label={contractType === 'CONDITION_VENTE' ? 'Condition-Vente' : 'Location'} />
               <div className="grid grid-cols-2 gap-3">
                 {contractType === 'CONDITION_VENTE' ? (
-                  <Field name="totalPriceFixed" label="Montant total fixé (FCFA)" type="number" required />
+                  <>
+                    <Field name="totalPriceFixed" label="Montant total fixé (FCFA)" type="number" required />
+                    <Field name="cautionReference" label="Caution / avance versée (FCFA)" type="number" />
+                  </>
                 ) : (
                   <>
                     <Field name="cautionReference" label="Caution de référence (FCFA)" type="number" required />
