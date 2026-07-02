@@ -52,7 +52,7 @@ export default function DriverDetailPage() {
       {/* En-tête */}
       <div className="flex items-start justify-between mb-6 flex-wrap gap-3">
         <div>
-          <h1 className="font-display font-bold text-2xl text-transparent bg-clip-text bg-gradient-to-r from-hud-cyan to-white tracking-widest">
+          <h1 className="font-display font-bold text-2xl text-transparent bg-clip-text bg-gradient-to-r from-hud-cyan to-empire-rouge tracking-widest">
             {driver.fullName}
           </h1>
           <div className="flex items-center gap-2 mt-1 flex-wrap">

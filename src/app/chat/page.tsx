@@ -172,7 +172,7 @@ export default function ChatPage() {
       <Navbar />
       <div className="flex flex-col flex-1 max-w-3xl mx-auto w-full px-4 py-4">
         <div className="mb-4">
-          <h1 className="font-display font-bold text-2xl text-transparent bg-clip-text bg-gradient-to-r from-hud-cyan to-white tracking-widest">
+          <h1 className="font-display font-bold text-2xl text-transparent bg-clip-text bg-gradient-to-r from-hud-cyan to-empire-rouge tracking-widest">
             CHAT
           </h1>
           <p className="text-xs text-gray-500 tracking-widest uppercase">Canal général — taguez avec @identifiant</p>

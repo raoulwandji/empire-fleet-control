@@ -55,7 +55,7 @@ export default function OwnersPage() {
         {/* En-tête */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="font-display font-bold text-2xl text-transparent bg-clip-text bg-gradient-to-r from-hud-cyan to-white tracking-widest">
+            <h1 className="font-display font-bold text-2xl text-transparent bg-clip-text bg-gradient-to-r from-hud-cyan to-empire-rouge tracking-widest">
               PROPRIÉTAIRES
             </h1>
             <p className="text-xs text-gray-500 tracking-widest uppercase mt-1">

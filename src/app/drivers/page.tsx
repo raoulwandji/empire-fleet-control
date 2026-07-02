@@ -67,7 +67,7 @@ export default function DriversPage() {
 
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
-            <h1 className="font-display font-bold text-2xl text-transparent bg-clip-text bg-gradient-to-r from-hud-cyan to-white tracking-widest">
+            <h1 className="font-display font-bold text-2xl text-transparent bg-clip-text bg-gradient-to-r from-hud-cyan to-empire-rouge tracking-widest">
               CHAUFFEURS
             </h1>
             <p className="text-xs text-gray-500 tracking-widest uppercase">Base d'identification de la flotte</p>

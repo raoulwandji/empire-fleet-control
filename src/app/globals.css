@@ -5,34 +5,34 @@
 /* ─── Reset ────────────────────────────────── */
 * { box-sizing: border-box; }
 
-/* ─── Inputs HUD par défaut (fond sombre) ─── */
+/* ─── Inputs par défaut (thème clair naturel) ─── */
 input:not(.form-input), textarea:not(.form-input), select:not(.form-select) {
-  background-color: #04060d;
-  color: #e5e7eb;
-  border-color: #1c2440;
+  background-color: #ffffff;
+  color: #1f2937;
+  border-color: #ddd5c2;
 }
 input:not(.form-input)::placeholder, textarea:not(.form-input)::placeholder {
-  color: #4b5563;
+  color: #a8a29e;
 }
 input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: invert(0.6) sepia(1) saturate(3) hue-rotate(160deg);
+  filter: invert(0.4) sepia(1) saturate(2) hue-rotate(90deg);
   cursor: pointer;
 }
-option { background-color: #0b1020; color: #e5e7eb; }
+option { background-color: #ffffff; color: #1f2937; }
 
-/* ─── Inputs saisie manuelle (fond blanc, texte noir foncé) ─── */
+/* ─── Inputs saisie manuelle ─── */
 .form-input, .form-select {
   background-color: #ffffff !important;
   color: #111827 !important;
-  border-color: #1c2440;
+  border-color: #ddd5c2;
 }
 .form-input::placeholder {
   color: #9ca3af !important;
 }
 .form-input:focus, .form-select:focus {
-  background-color: #f9fafb !important;
-  border-color: #22e8ff !important;
-  box-shadow: 0 0 0 2px rgba(34, 232, 255, 0.2) !important;
+  background-color: #fdfcf8 !important;
+  border-color: #2f7d4f !important;
+  box-shadow: 0 0 0 2px rgba(47, 125, 79, 0.15) !important;
   outline: none;
 }
 .form-select option {
@@ -42,27 +42,40 @@ option { background-color: #0b1020; color: #e5e7eb; }
 
 body {
   font-family: var(--font-body), 'Segoe UI', sans-serif;
-  background-color: #04060d;
+  color: #1f2937;
+  background-color: #f5f2e9;
   background-image:
-    linear-gradient(rgba(34,232,255,0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(34,232,255,0.04) 1px, transparent 1px);
+    linear-gradient(rgba(47,125,79,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(47,125,79,0.04) 1px, transparent 1px);
   background-size: 32px 32px;
 }
 
-/* ─── HUD card (glassmorphism) ──────────────── */
+/* ─── Logo Empire Drive en filigrane plein écran ─── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: url('/logo.jpg') center / min(85vw, 85vh) no-repeat;
+  opacity: 0.07;
+  pointer-events: none;
+  z-index: 0;
+}
+body > * { position: relative; z-index: 1; }
+
+/* ─── Cartes & composants (thème naturel) ──── */
 @layer components {
   .card {
     @apply bg-hud-panel border border-hud-line rounded-xl shadow-glass backdrop-blur-sm;
   }
 
   .card-hover {
-    @apply card transition-all duration-200 hover:border-hud-cyan/40 hover:shadow-neon;
+    @apply card transition-all duration-200 hover:border-hud-cyan/50 hover:shadow-neon;
   }
 
   .hud-input {
-    @apply w-full bg-hud-bg border border-hud-line rounded-lg px-3 py-2 text-gray-100
+    @apply w-full bg-white border border-hud-line rounded-lg px-3 py-2 text-gray-900
            text-sm focus:outline-none focus:border-hud-cyan focus:shadow-neon
-           transition-all duration-200 placeholder:text-gray-600;
+           transition-all duration-200 placeholder:text-gray-400;
   }
 
   .hud-select {
@@ -72,7 +85,7 @@ body {
   .form-input {
     @apply w-full bg-white border-2 border-hud-line rounded-lg px-3 py-2
            text-gray-900 font-medium text-sm
-           focus:outline-none focus:border-hud-cyan focus:ring-2 focus:ring-hud-cyan/30
+           focus:outline-none focus:border-hud-cyan focus:ring-2 focus:ring-hud-cyan/20
            transition-all duration-200 placeholder:text-gray-400;
   }
 
@@ -87,13 +100,13 @@ body {
   }
 
   .btn-secondary {
-    @apply bg-transparent border border-hud-line text-gray-300 px-4 py-2 rounded-lg text-sm
+    @apply bg-white border border-hud-line text-gray-700 px-4 py-2 rounded-lg text-sm
            hover:border-hud-cyan hover:text-hud-cyan transition-all duration-200;
   }
 
   .btn-danger {
-    @apply bg-transparent border border-red-800 text-red-400 px-4 py-2 rounded-lg text-sm
-           hover:bg-red-950 hover:border-empire-rougeVif hover:text-empire-rougeVif
+    @apply bg-white border border-red-300 text-red-700 px-4 py-2 rounded-lg text-sm
+           hover:bg-red-50 hover:border-empire-rouge hover:text-empire-rouge
            transition-all duration-200;
   }
 
@@ -102,18 +115,18 @@ body {
   }
 
   .badge-cv {
-    @apply text-xs px-2 py-0.5 rounded-full bg-blue-900/60 text-blue-300 border border-blue-700/50;
+    @apply text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-300;
   }
   .badge-loc {
-    @apply text-xs px-2 py-0.5 rounded-full bg-emerald-900/60 text-emerald-300 border border-emerald-700/50;
+    @apply text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300;
   }
   .badge-warn {
-    @apply text-xs px-2 py-0.5 rounded-full bg-red-900/60 text-red-300 border border-red-700/50 animate-pulse;
+    @apply text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-300 animate-pulse;
   }
 
   .hud-table { @apply w-full text-sm; }
   .hud-table thead tr {
-    @apply bg-hud-panel2 border-b border-hud-cyan/20;
+    @apply bg-hud-panel2 border-b border-hud-cyan/30;
   }
   .hud-table thead th {
     @apply p-3 text-left text-xs font-semibold text-hud-cyan uppercase tracking-widest;
@@ -122,7 +135,7 @@ body {
     @apply border-b border-hud-line transition-colors duration-150 hover:bg-hud-panel2;
   }
   .hud-table tbody td {
-    @apply p-3 text-gray-300;
+    @apply p-3 text-gray-700;
   }
 
   .hud-title {
@@ -131,18 +144,25 @@ body {
 
   .stat-card  { @apply card p-4 flex flex-col gap-1; }
   .stat-label { @apply text-xs text-gray-500 uppercase tracking-widest; }
-  .stat-value { @apply text-lg font-display font-bold text-gray-100; }
+  .stat-value { @apply text-lg font-display font-bold text-gray-800; }
   .stat-value-accent  { @apply stat-value text-hud-cyan; }
-  .stat-value-danger  { @apply stat-value text-empire-rougeVif; }
+  .stat-value-danger  { @apply stat-value text-empire-rouge; }
 
   .progress-bar  { @apply w-full h-2 rounded-full bg-hud-line overflow-hidden; }
   .progress-fill { @apply h-2 rounded-full transition-all duration-700; }
 
-  .neon-link { @apply text-hud-cyan hover:text-white hover:underline transition-colors duration-150; }
+  .neon-link { @apply text-hud-cyan hover:text-empire-rouge hover:underline transition-colors duration-150; }
 }
 
-/* ─── Scrollbar sombre ──────────────────────── */
+/* ─── Remap des gris clairs (pages écrites pour fond sombre) ─── */
+.text-gray-100, .text-gray-200 { color: #1f2937; }
+.text-gray-300 { color: #374151; }
+.text-gray-400 { color: #57534e; }
+.text-white:not(.btn-primary):not(button):not(a) { color: #1f2937; }
+.btn-primary, .btn-primary * { color: #ffffff; }
+
+/* ─── Scrollbar naturelle ──────────────────── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #0b1020; }
-::-webkit-scrollbar-thumb { background: #1c2440; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #22e8ff44; }
+::-webkit-scrollbar-track { background: #f0ecdf; }
+::-webkit-scrollbar-thumb { background: #ddd5c2; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #2f7d4f66; }

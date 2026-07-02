@@ -45,10 +45,10 @@ export default function LoginPage() {
               <Image src="/logo.jpg" alt="Yango Empire Drive" fill className="object-cover" priority />
             </div>
             <div className="text-center space-y-1">
-              <h1 className="font-display font-black text-2xl tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-hud-cyan via-white to-empire-rougeVif">
+              <h1 className="font-display font-black text-2xl tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-hud-cyan via-empire-rouge to-empire-rougeVif">
                 EMPIRE-FLEET
               </h1>
-              <h2 className="font-display font-black text-2xl tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-empire-rougeVif via-white to-hud-cyan">
+              <h2 className="font-display font-black text-2xl tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-empire-rougeVif via-empire-rouge to-hud-cyan">
                 CONTROL
               </h2>
               <p className="text-xs text-gray-500 tracking-widest uppercase pt-1">

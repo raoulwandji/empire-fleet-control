@@ -118,33 +118,33 @@ export default function DriversEvolutionChart() {
             </filter>
           </defs>
 
-          <CartesianGrid strokeDasharray="3 3" stroke="#1c2440" vertical={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke="#ddd5c2" vertical={false} />
 
           <XAxis
             dataKey="label"
-            tick={{ fill: '#4b5563', fontSize: 10 }}
+            tick={{ fill: '#78716c', fontSize: 10 }}
             tickLine={false}
-            axisLine={{ stroke: '#1c2440' }}
+            axisLine={{ stroke: '#ddd5c2' }}
             interval={displayed.length > 12 ? Math.floor(displayed.length / 6) : 0}
           />
           <YAxis
             allowDecimals={false}
-            tick={{ fill: '#4b5563', fontSize: 10 }}
+            tick={{ fill: '#78716c', fontSize: 10 }}
             tickLine={false}
             axisLine={false}
           />
 
           <Tooltip
             contentStyle={{
-              background: 'rgba(11,16,32,0.95)',
-              border: '1px solid #22e8ff33',
+              background: 'rgba(253,252,248,0.97)',
+              border: '1px solid #2f7d4f33',
               borderRadius: 10,
               fontSize: 12,
-              boxShadow: '0 0 16px rgba(34,232,255,0.15)',
+              boxShadow: '0 0 16px rgba(47,125,79,0.15)',
             }}
-            labelStyle={{ color: '#22e8ff', fontWeight: 'bold', marginBottom: 6, letterSpacing: '0.05em' }}
-            itemStyle={{ color: '#e5e7eb', paddingTop: 2 }}
-            cursor={{ stroke: '#22e8ff22', strokeWidth: 1, strokeDasharray: '4 2' }}
+            labelStyle={{ color: '#2f7d4f', fontWeight: 'bold', marginBottom: 6, letterSpacing: '0.05em' }}
+            itemStyle={{ color: '#374151', paddingTop: 2 }}
+            cursor={{ stroke: '#2f7d4f22', strokeWidth: 1, strokeDasharray: '4 2' }}
             formatter={(value, name) => [
               value,
               name === 'cv' ? 'Condition Vente' : name === 'loc' ? 'Location' : 'Total',
@@ -164,15 +164,15 @@ export default function DriversEvolutionChart() {
           <Line
             type="monotone"
             dataKey="total"
-            stroke="#22e8ff"
+            stroke="#2f7d4f"
             strokeWidth={2.5}
-            activeDot={{ r: 5, fill: '#22e8ff', stroke: '#0b1020', strokeWidth: 2 }}
+            activeDot={{ r: 5, fill: '#2f7d4f', stroke: '#ffffff', strokeWidth: 2 }}
             isAnimationActive={visible}
             animationDuration={1400}
             animationEasing="ease-out"
             dot={(props: Record<string, unknown>) => {
               if ((props.index as number) === displayed.length - 1) {
-                return <GlowDot key="last-total" cx={props.cx as number} cy={props.cy as number} stroke="#22e8ff" />;
+                return <GlowDot key="last-total" cx={props.cx as number} cy={props.cy as number} stroke="#2f7d4f" />;
               }
               return <g key={`dot-${props.index}`} />;
             }}
@@ -186,7 +186,7 @@ export default function DriversEvolutionChart() {
             strokeWidth={1.5}
             strokeDasharray="5 3"
             dot={false}
-            activeDot={{ r: 4, fill: '#3b82f6', stroke: '#0b1020', strokeWidth: 2 }}
+            activeDot={{ r: 4, fill: '#3b82f6', stroke: '#ffffff', strokeWidth: 2 }}
             isAnimationActive={visible}
             animationDuration={1600}
             animationEasing="ease-out"
@@ -200,7 +200,7 @@ export default function DriversEvolutionChart() {
             strokeWidth={1.5}
             strokeDasharray="5 3"
             dot={false}
-            activeDot={{ r: 4, fill: '#10b981', stroke: '#0b1020', strokeWidth: 2 }}
+            activeDot={{ r: 4, fill: '#10b981', stroke: '#ffffff', strokeWidth: 2 }}
             isAnimationActive={visible}
             animationDuration={1800}
             animationEasing="ease-out"

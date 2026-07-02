@@ -85,7 +85,7 @@ export default function UsersPage() {
       <Navbar />
       <div className="p-6 max-w-4xl mx-auto space-y-6">
         <div>
-          <h1 className="font-display font-bold text-2xl text-transparent bg-clip-text bg-gradient-to-r from-hud-cyan to-white tracking-widest">
+          <h1 className="font-display font-bold text-2xl text-transparent bg-clip-text bg-gradient-to-r from-hud-cyan to-empire-rouge tracking-widest">
             UTILISATEURS
           </h1>
           <p className="text-xs text-gray-500 tracking-widest uppercase">Gestion des comptes</p>

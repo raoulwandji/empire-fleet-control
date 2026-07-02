@@ -37,8 +37,8 @@ export default function DashboardPage() {
     if (mode === 'week' && weekStartDate) params.set('weekStartDate', weekStartDate);
     const res = await fetch(`/api/dashboard?${params.toString()}`);
     const data = await res.json();
-    setConditionVente(data.conditionVente);
-    setLocation(data.location);
+    setConditionVente(Array.isArray(data.conditionVente) ? data.conditionVente : []);
+    setLocation(Array.isArray(data.location) ? data.location : []);
     setLoading(false);
   }, [mode, weekStartDate]);
 
@@ -52,7 +52,7 @@ export default function DashboardPage() {
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h1 className="font-display font-bold text-2xl text-transparent bg-clip-text bg-gradient-to-r from-hud-cyan to-white tracking-widest">
+            <h1 className="font-display font-bold text-2xl text-transparent bg-clip-text bg-gradient-to-r from-hud-cyan to-empire-rouge tracking-widest">
               TABLEAU DE BORD
             </h1>
             <p className="text-xs text-gray-500 tracking-widest uppercase mt-1">Classements & Indicateurs de flotte</p>
@@ -128,7 +128,7 @@ function WeeklyTotalsPanel() {
 
       {loading ? (
         <p className="text-xs text-gray-500 animate-pulse tracking-widest">⟳ CHARGEMENT...</p>
-      ) : !data ? (
+      ) : !data || !data.conditionVente ? (
         <p className="text-xs text-gray-600 italic">Données indisponibles.</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -218,7 +218,7 @@ function EmpireWeeklyPanel() {
 
       {loading ? (
         <p className="text-xs text-gray-500 animate-pulse tracking-widest">⟳ CHARGEMENT...</p>
-      ) : !data ? (
+      ) : !data || data.totalVersements === undefined ? (
         <p className="text-xs text-gray-600 italic">Données indisponibles.</p>
       ) : (
         <>
@@ -380,7 +380,7 @@ function ProgressPanel() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     const res = await fetch(`/api/dashboard/progress?limit=${limit}`);
-    setRows(await res.json());
+    const d = await res.json(); setRows(Array.isArray(d) ? d : []);
     setLoading(false);
   }, [limit]);
 
@@ -447,7 +447,7 @@ function SanctionsPanel() {
     if (contractType) params.set('contractType', contractType);
     const res = await fetch(`/api/dashboard/sanctions?${params.toString()}`);
     const data = await res.json();
-    setRows(data.ranked);
+    setRows(Array.isArray(data.ranked) ? data.ranked : []);
     setLoading(false);
   }, [scope, contractType, limit]);
 
@@ -522,7 +522,7 @@ function WeeklyStatusPanel() {
     if (contractType) params.set('contractType', contractType);
     const res = await fetch(`/api/dashboard/weekly-status?${params.toString()}`);
     const data = await res.json();
-    setRows(data.results);
+    setRows(Array.isArray(data.results) ? data.results : []);
     setLoading(false);
   }, [weekStartDate, status, contractType]);
 

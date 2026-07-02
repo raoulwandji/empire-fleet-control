@@ -241,7 +241,7 @@ export default function OwnerDetailPage() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <Link href="/owners" className="text-xs text-gray-500 hover:text-hud-cyan transition-colors">← Propriétaires</Link>
-            <h1 className="font-display font-bold text-2xl text-transparent bg-clip-text bg-gradient-to-r from-hud-cyan to-white tracking-widest mt-1">
+            <h1 className="font-display font-bold text-2xl text-transparent bg-clip-text bg-gradient-to-r from-hud-cyan to-empire-rouge tracking-widest mt-1">
               {owner.fullName.toUpperCase()}
             </h1>
             <p className="text-xs text-gray-500 mt-0.5">{owner.phone}{owner.location ? ` — ${owner.location}` : ''}</p>

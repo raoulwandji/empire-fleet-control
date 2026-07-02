@@ -131,7 +131,7 @@ export default function CommissionsEvolutionChart() {
             </filter>
           </defs>
 
-          <CartesianGrid strokeDasharray="3 3" stroke="#1c2440" vertical={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke="#ddd5c2" vertical={false} />
 
           {/* Ligne de moyenne */}
           {avgWeek > 0 && (
@@ -152,13 +152,13 @@ export default function CommissionsEvolutionChart() {
 
           <XAxis
             dataKey="label"
-            tick={{ fill: '#4b5563', fontSize: 10 }}
+            tick={{ fill: '#78716c', fontSize: 10 }}
             tickLine={false}
-            axisLine={{ stroke: '#1c2440' }}
+            axisLine={{ stroke: '#ddd5c2' }}
             interval={displayed.length > 12 ? Math.floor(displayed.length / 6) : 0}
           />
           <YAxis
-            tick={{ fill: '#4b5563', fontSize: 10 }}
+            tick={{ fill: '#78716c', fontSize: 10 }}
             tickLine={false}
             axisLine={false}
             tickFormatter={(v) => v >= 1000 ? `${Math.round(v / 1000)}k` : String(v)}
@@ -166,14 +166,14 @@ export default function CommissionsEvolutionChart() {
 
           <Tooltip
             contentStyle={{
-              background: 'rgba(11,16,32,0.95)',
+              background: 'rgba(253,252,248,0.97)',
               border: '1px solid #ff284533',
               borderRadius: 10,
               fontSize: 12,
               boxShadow: '0 0 16px rgba(255,40,69,0.15)',
             }}
             labelStyle={{ color: '#ff2845', fontWeight: 'bold', marginBottom: 6, letterSpacing: '0.05em' }}
-            itemStyle={{ color: '#e5e7eb' }}
+            itemStyle={{ color: '#374151' }}
             cursor={{ stroke: '#ff284522', strokeWidth: 1, strokeDasharray: '4 2' }}
             formatter={(value) => [fmtFCFA(Number(value)), 'Commission']}
           />
@@ -187,7 +187,7 @@ export default function CommissionsEvolutionChart() {
             isAnimationActive={visible}
             animationDuration={1600}
             animationEasing="ease-out"
-            activeDot={{ r: 5, fill: '#ff2845', stroke: '#0b1020', strokeWidth: 2 }}
+            activeDot={{ r: 5, fill: '#ff2845', stroke: '#ffffff', strokeWidth: 2 }}
             dot={(props: Record<string, unknown>) => {
               if ((props.index as number) === displayed.length - 1) {
                 return <GlowDot key="last-comm" cx={props.cx as number} cy={props.cy as number} />;

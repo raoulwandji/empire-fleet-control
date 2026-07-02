@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr">
-      <body className={`${orbitron.variable} ${rajdhani.variable} bg-hud-bg text-gray-100 min-h-screen font-body`}>
+      <body className={`${orbitron.variable} ${rajdhani.variable} bg-hud-bg text-gray-800 min-h-screen font-body`}>
         <SessionProvider>{children}</SessionProvider>
       </body>
     </html>

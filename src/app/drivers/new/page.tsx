@@ -123,7 +123,7 @@ export default function NewDriverPage() {
       <Navbar />
       <div className="p-6 max-w-3xl mx-auto">
         <div className="mb-6">
-          <h1 className="font-display font-bold text-2xl text-transparent bg-clip-text bg-gradient-to-r from-hud-cyan to-white tracking-widest">
+          <h1 className="font-display font-bold text-2xl text-transparent bg-clip-text bg-gradient-to-r from-hud-cyan to-empire-rouge tracking-widest">
             NOUVEAU CHAUFFEUR
           </h1>
           <p className="text-xs text-gray-500 tracking-widest uppercase mt-1">Enregistrement d'un chauffeur avec véhicule</p>
