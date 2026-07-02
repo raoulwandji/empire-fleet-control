@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import Navbar from '@/components/Navbar';
 import AvatarUploader from '@/components/AvatarUploader';
+import { CAPABILITIES, resolveCapabilities, type CapabilityKey } from '@/lib/capabilities';
 
 type User = {
   id: string;
@@ -12,6 +13,7 @@ type User = {
   role: 'ADMIN' | 'MANAGER' | 'EMPLOYEE';
   active: boolean;
   avatarUrl?: string | null;
+  capabilities?: Record<string, boolean> | null;
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -37,6 +39,7 @@ export default function SettingsPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [flash, setFlash] = useState('');
+  const [selectedId, setSelectedId] = useState<string>('');
 
   const fetchUsers = useCallback(async () => {
     const res = await fetch('/api/users');
@@ -47,6 +50,17 @@ export default function SettingsPage() {
   }, []);
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
+
+  async function toggleCap(user: User, cap: CapabilityKey) {
+    const effective = resolveCapabilities(user.role, user.capabilities);
+    const current = { ...(user.capabilities ?? {}) } as Record<string, boolean>;
+    current[cap] = !effective[cap];
+    await patch(
+      user.id,
+      { capabilities: current },
+      `Capacité « ${CAPABILITIES.find((c) => c.key === cap)?.label} » ${!effective[cap] ? 'accordée' : 'révoquée'} à ${user.fullName}`,
+    );
+  }
 
   async function patch(id: string, body: Record<string, unknown>, msg: string) {
     setSavingId(id);
@@ -157,11 +171,72 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        {/* Capacités par utilisateur */}
+        <div className="card overflow-hidden">
+          <div className="flex items-center gap-2 p-4 border-b border-hud-line">
+            <div className="w-1 h-5 rounded-full bg-empire-rouge" />
+            <h2 className="hud-title">Capacités individuelles</h2>
+          </div>
+          <div className="p-4 space-y-4">
+            <div>
+              <label className="hud-label">Choisir un utilisateur</label>
+              <select
+                value={selectedId}
+                onChange={(e) => setSelectedId(e.target.value)}
+                className="form-select w-full md:w-80"
+              >
+                <option value="">— Sélectionner —</option>
+                {users.filter((u) => u.id !== session?.user.id).map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.fullName} ({ROLE_LABELS[u.role]})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {(() => {
+              const u = users.find((x) => x.id === selectedId);
+              if (!u) {
+                return <p className="text-sm text-gray-500 italic">Sélectionnez un utilisateur pour ajuster ses capacités au-delà de son rôle.</p>;
+              }
+              if (u.role === 'ADMIN') {
+                return <p className="text-sm font-bold text-empire-rouge">Un administrateur dispose de toutes les capacités (non modifiable).</p>;
+              }
+              const eff = resolveCapabilities(u.role, u.capabilities);
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {CAPABILITIES.map((c) => {
+                    const on = eff[c.key];
+                    return (
+                      <button
+                        key={c.key}
+                        onClick={() => toggleCap(u, c.key)}
+                        disabled={savingId === u.id}
+                        className={`flex items-start justify-between gap-3 p-3 rounded-lg border-2 text-left transition-all disabled:opacity-50 ${
+                          on ? 'border-emerald-500 bg-emerald-50' : 'border-hud-line bg-white'
+                        }`}
+                      >
+                        <span>
+                          <span className="block font-bold text-sm text-gray-800">{c.label}</span>
+                          <span className="block text-xs text-gray-500">{c.desc}</span>
+                        </span>
+                        <span className={`shrink-0 w-11 h-6 rounded-full relative transition-colors ${on ? 'bg-emerald-500' : 'bg-gray-300'}`}>
+                          <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${on ? 'left-[22px]' : 'left-0.5'}`} />
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+
         {/* Matrice des permissions */}
         <div className="card overflow-hidden">
           <div className="flex items-center gap-2 p-4 border-b border-hud-line">
             <div className="w-1 h-5 rounded-full bg-hud-cyan" />
-            <h2 className="hud-title">Matrice des permissions par rôle</h2>
+            <h2 className="hud-title">Matrice des permissions par défaut (par rôle)</h2>
           </div>
           <div className="overflow-x-auto">
             <table className="hud-table">

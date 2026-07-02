@@ -4,12 +4,14 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import { useSession } from 'next-auth/react';
+import { useCapabilities } from '@/lib/useCapabilities';
 
 type Owner = { id: string; fullName: string; phone: string; location: string | null };
 
 export default function OwnersPage() {
   const { data: session } = useSession();
-  const isAdminOrManager = session?.user.role === 'ADMIN' || session?.user.role === 'MANAGER';
+  const { can } = useCapabilities();
+  const isAdminOrManager = can('owners');
 
   const [owners, setOwners] = useState<Owner[]>([]);
   const [loading, setLoading] = useState(true);

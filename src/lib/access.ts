@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { Role } from '@prisma/client';
+import { hasCapability, type CapabilityKey } from '@/lib/capabilities';
 
 export class AccessError extends Error {
   status: number;
@@ -61,6 +62,21 @@ export async function requireDriverWriteAccess(
       "Vous n'êtes pas affecté à ce chauffeur. Action refusée.",
       403
     );
+  }
+}
+
+/**
+ * Vérifie que l'utilisateur possède une capacité (défaut du rôle ou surcharge admin).
+ * ADMIN passe toujours. Fait une lecture des capacités en base.
+ */
+export async function requireCapability(userId: string, role: Role, cap: CapabilityKey) {
+  if (role === 'ADMIN') return;
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { capabilities: true },
+  });
+  if (!user || !hasCapability(role, user.capabilities, cap)) {
+    throw new AccessError('Cette capacité n\'est pas autorisée pour votre compte.', 403);
   }
 }
 

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import Navbar from '@/components/Navbar';
+import { useCapabilities } from '@/lib/useCapabilities';
 
 type Assignment = {
   id: string;
@@ -63,9 +64,10 @@ export default function AssignmentsPage() {
     fetchAll();
   }
 
-  const isAdminOrManager = session?.user.role === 'ADMIN' || session?.user.role === 'MANAGER';
+  const { caps, loading: capsLoading } = useCapabilities();
+  const canAccess = !!caps.assignments;
 
-  if (session && !isAdminOrManager) {
+  if (session && !capsLoading && !canAccess) {
     return (
       <div>
         <Navbar />

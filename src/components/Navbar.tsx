@@ -13,13 +13,13 @@ const links = [
   { href: '/dashboard', label: 'Accueil' },
   { href: '/drivers', label: 'Chauffeurs' },
   { href: '/pending-drivers', label: 'En attente' },
-  { href: '/owners', label: 'Propriétaires', managerOnly: true },
-  { href: '/reports', label: 'Rapports', managerOnly: true },
+  { href: '/owners', label: 'Propriétaires', cap: 'owners' },
+  { href: '/reports', label: 'Rapports', cap: 'reports' },
   { href: '/accounting', label: 'Comptabilité' },
-  { href: '/users', label: 'Utilisateurs', managerOnly: true },
-  { href: '/assignments', label: 'Affectations', managerOnly: true },
+  { href: '/users', label: 'Utilisateurs', cap: 'users_manage' },
+  { href: '/assignments', label: 'Affectations', cap: 'assignments' },
   { href: '/settings', label: 'Paramètres', adminOnly: true },
-];
+] as const;
 
 function roleLabel(role?: string) {
   if (role === 'ADMIN') return 'Admin';
@@ -32,7 +32,7 @@ export default function Navbar() {
   const router = useRouter();
   const { data: session } = useSession();
   const role = session?.user.role;
-  const isAdminOrManager = role === 'ADMIN' || role === 'MANAGER';
+  const [caps, setCaps] = useState<Record<string, boolean>>({});
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -75,6 +75,9 @@ export default function Navbar() {
     fetch('/api/profile')
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => data && setAvatarUrl(data.avatarUrl ?? null));
+    fetch('/api/me')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => data?.capabilities && setCaps(data.capabilities));
   }, [session?.user]);
 
   useEffect(() => {
@@ -117,7 +120,12 @@ export default function Navbar() {
       {/* Liens de navigation — scrollables si l'écran est étroit */}
       <div className="flex gap-1 text-sm font-medium overflow-x-auto flex-1 min-w-0">
         {links
-          .filter((l) => (!l.managerOnly || isAdminOrManager) && (!l.adminOnly || role === 'ADMIN'))
+          .filter((l) => {
+            const link = l as { cap?: string; adminOnly?: boolean };
+            if (link.adminOnly) return role === 'ADMIN';
+            if (link.cap) return !!caps[link.cap];
+            return true;
+          })
           .map((l) => {
             const active = pathname?.startsWith(l.href);
             return (

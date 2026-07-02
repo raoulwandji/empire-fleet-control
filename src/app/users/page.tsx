@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import Navbar from '@/components/Navbar';
 import AvatarUploader from '@/components/AvatarUploader';
+import { useCapabilities } from '@/lib/useCapabilities';
 
 type User = {
   id: string;
@@ -26,13 +27,16 @@ export default function UsersPage() {
   const [error, setError] = useState('');
   const [form, setForm] = useState({ username: '', password: '', fullName: '', role: 'EMPLOYEE' as 'ADMIN' | 'MANAGER' | 'EMPLOYEE' });
 
+  const { caps, loading: capsLoading } = useCapabilities();
   const isAdmin = session?.user.role === 'ADMIN';
-  const isManager = session?.user.role === 'MANAGER';
-  const canAccess = isAdmin || isManager;
+  const canAccess = !!caps.users_manage;
 
   const fetchUsers = useCallback(async () => {
     const res = await fetch('/api/users');
-    if (res.ok) setUsers(await res.json());
+    if (res.ok) {
+      const d = await res.json();
+      setUsers(Array.isArray(d) ? d : []);
+    }
   }, []);
 
   useEffect(() => {
@@ -71,7 +75,7 @@ export default function UsersPage() {
     fetchUsers();
   }
 
-  if (session && !canAccess) {
+  if (session && !capsLoading && !canAccess) {
     return (
       <div>
         <Navbar />

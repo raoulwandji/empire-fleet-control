@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { requireSession, requireAdminOrManager, handleAccessError } from '@/lib/access';
+import { requireSession, requireAdminOrManager, handleAccessError , requireCapability } from '@/lib/access';
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -61,7 +61,7 @@ const ownerUpdateSchema = z.object({
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await requireSession();
-    requireAdminOrManager(session.user.role);
+    await requireCapability(session.user.id, session.user.role, 'owners');
     const body = ownerUpdateSchema.parse(await req.json());
     const owner = await prisma.owner.update({ where: { id: params.id }, data: body });
     return NextResponse.json(owner);
@@ -73,7 +73,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await requireSession();
-    requireAdminOrManager(session.user.role);
+    await requireCapability(session.user.id, session.user.role, 'owners');
     await prisma.owner.delete({ where: { id: params.id } });
     return NextResponse.json({ ok: true });
   } catch (err) {

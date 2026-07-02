@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireSession, requireAdminOrManager, handleAccessError } from '@/lib/access';
+import { requireSession, requireAdminOrManager, handleAccessError , requireCapability } from '@/lib/access';
 
 export async function GET(req: NextRequest) {
   try {
     const session = await requireSession();
-    requireAdminOrManager(session.user.role);
+    await requireCapability(session.user.id, session.user.role, 'reports');
 
     const url = req.nextUrl;
     const ownerId = url.searchParams.get('ownerId');

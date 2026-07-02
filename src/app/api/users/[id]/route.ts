@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
-import { requireSession, requireAdmin, requireAdminOrManager, handleAccessError, logAudit } from '@/lib/access';
+import { requireSession, requireAdmin, handleAccessError, logAudit, requireCapability } from '@/lib/access';
 import { z } from 'zod';
 
 const updateSchema = z.object({
@@ -9,20 +9,24 @@ const updateSchema = z.object({
   role: z.enum(['ADMIN', 'MANAGER', 'EMPLOYEE']).optional(),
   active: z.boolean().optional(),
   password: z.string().min(6).optional(),
+  capabilities: z.record(z.boolean()).optional(),
 });
 
-// PATCH /api/users/[id] — admin + manager (manager ne peut pas changer le rôle)
+// PATCH /api/users/[id] — nécessite la capacité "users_manage"
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await requireSession();
-    requireAdminOrManager(session.user.role);
+    await requireCapability(session.user.id, session.user.role, 'users_manage');
 
     const body = await req.json();
     const data = updateSchema.parse(body);
 
-    // Un gestionnaire ne peut pas modifier le rôle d'un autre utilisateur
-    if (session.user.role === 'MANAGER' && data.role !== undefined) {
-      return NextResponse.json({ error: 'Un gestionnaire ne peut pas modifier le rôle d\'un utilisateur.' }, { status: 403 });
+    // Seul l'ADMIN peut changer un rôle ou modifier les capacités d'un utilisateur
+    if (session.user.role !== 'ADMIN' && data.role !== undefined) {
+      return NextResponse.json({ error: 'Seul un administrateur peut modifier le rôle d\'un utilisateur.' }, { status: 403 });
+    }
+    if (session.user.role !== 'ADMIN' && data.capabilities !== undefined) {
+      return NextResponse.json({ error: 'Seul un administrateur peut modifier les capacités d\'un utilisateur.' }, { status: 403 });
     }
 
     const updateData: Record<string, unknown> = { ...data };

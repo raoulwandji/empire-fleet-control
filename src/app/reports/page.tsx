@@ -74,15 +74,15 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (status === 'authenticated') {
-      const role = session?.user.role;
-      if (role !== 'ADMIN' && role !== 'MANAGER') {
-        router.replace('/drivers');
+    if (status !== 'authenticated') return;
+    fetch('/api/me').then((r) => (r.ok ? r.json() : null)).then((me) => {
+      if (!me?.capabilities?.reports) {
+        router.replace('/dashboard');
         return;
       }
       fetch('/api/owners').then((r) => r.json()).then((d) => setOwners(Array.isArray(d) ? d : (d.owners ?? [])));
-    }
-  }, [status, session, router]);
+    });
+  }, [status, router]);
 
   async function loadReport() {
     if (!ownerId) return;

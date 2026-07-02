@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
-import { requireSession, requireAdminOrManager, handleAccessError, logAudit } from '@/lib/access';
+import { requireSession, handleAccessError, logAudit, requireCapability } from '@/lib/access';
 import { userCreateSchema } from '@/lib/validation';
 
-// GET /api/users — admin + manager
+// GET /api/users — nécessite la capacité "users_manage"
 export async function GET() {
   try {
     const session = await requireSession();
-    requireAdminOrManager(session.user.role);
+    await requireCapability(session.user.id, session.user.role, 'users_manage');
 
     const users = await prisma.user.findMany({
-      select: { id: true, username: true, fullName: true, role: true, active: true, avatarUrl: true, createdAt: true },
+      select: { id: true, username: true, fullName: true, role: true, active: true, avatarUrl: true, capabilities: true, createdAt: true },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -21,11 +21,11 @@ export async function GET() {
   }
 }
 
-// POST /api/users — admin + manager (manager ne peut pas créer de compte ADMIN)
+// POST /api/users — nécessite "users_manage" (manager ne peut pas créer de compte ADMIN)
 export async function POST(req: NextRequest) {
   try {
     const session = await requireSession();
-    requireAdminOrManager(session.user.role);
+    await requireCapability(session.user.id, session.user.role, 'users_manage');
 
     const body = await req.json();
     const data = userCreateSchema.parse(body);

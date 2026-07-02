@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { requireAdminOrManager, requireSession, handleAccessError } from '@/lib/access';
+import { requireAdminOrManager, requireSession, handleAccessError , requireCapability } from '@/lib/access';
 
 // GET /api/owners — liste tous les propriétaires
 export async function GET() {
@@ -27,7 +27,7 @@ const ownerSchema = z.object({
 export async function POST(req: NextRequest) {
   try {
     const session = await requireSession();
-    requireAdminOrManager(session.user.role);
+    await requireCapability(session.user.id, session.user.role, 'owners');
     const body = ownerSchema.parse(await req.json());
     const owner = await prisma.owner.create({ data: body });
     return NextResponse.json(owner, { status: 201 });
