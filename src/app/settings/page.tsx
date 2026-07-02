@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import Navbar from '@/components/Navbar';
 import AvatarUploader from '@/components/AvatarUploader';
 import { CAPABILITIES, resolveCapabilities, type CapabilityKey } from '@/lib/capabilities';
+import { formatFCFA } from '@/lib/business';
 
 type User = {
   id: string;
@@ -232,6 +233,9 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        {/* Avances / cautions des chauffeurs Condition-Vente existants */}
+        <CvAdvancesPanel />
+
         {/* Matrice des permissions */}
         <div className="card overflow-hidden">
           <div className="flex items-center gap-2 p-4 border-b border-hud-line">
@@ -270,4 +274,149 @@ function Cell({ v }: { v: boolean | string }) {
   if (v === true) return <span className="text-emerald-600 font-bold text-lg">✓</span>;
   if (v === false) return <span className="text-gray-300 font-bold text-lg">✕</span>;
   return <span className="text-xs font-bold text-hud-cyan bg-hud-cyan/10 px-2 py-0.5 rounded-full">{v}</span>;
+}
+
+type CvAdvanceRow = {
+  driverId: string;
+  code: string;
+  fullName: string;
+  totalFixed: number;
+  totalPaid: number;
+  cautionAdvance: number;
+  hasAdvance: boolean;
+  resteAPayer: number;
+  percent: number;
+};
+
+// Applique la progression (caution = avance) aux chauffeurs Condition-Vente existants :
+// saisie groupée de l'avance/caution déjà versée par chaque chauffeur.
+function CvAdvancesPanel() {
+  const [rows, setRows] = useState<CvAdvanceRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [inputs, setInputs] = useState<Record<string, string>>({});
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [flash, setFlash] = useState('');
+
+  const fetchRows = useCallback(async () => {
+    setLoading(true);
+    const res = await fetch('/api/drivers/cv-advances');
+    const d = res.ok ? await res.json() : [];
+    setRows(Array.isArray(d) ? d : []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchRows(); }, [fetchRows]);
+
+  async function saveAdvance(row: CvAdvanceRow) {
+    const raw = inputs[row.driverId];
+    const amount = Number(raw);
+    if (!raw || isNaN(amount) || amount <= 0) return;
+    setSavingId(row.driverId);
+    const res = await fetch('/api/caution', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        driverId: row.driverId,
+        date: new Date().toISOString().slice(0, 10),
+        type: 'DEPOT_INITIAL',
+        amount,
+        reason: 'Avance / caution appliquée à la progression (saisie groupée)',
+      }),
+    });
+    setSavingId(null);
+    if (res.ok) {
+      setInputs((prev) => ({ ...prev, [row.driverId]: '' }));
+      setFlash(`Avance de ${formatFCFA(amount)} appliquée à ${row.fullName}`);
+      setTimeout(() => setFlash(''), 2500);
+      fetchRows();
+    }
+  }
+
+  return (
+    <div className="card overflow-hidden">
+      <div className="flex items-center gap-2 p-4 border-b border-hud-line">
+        <div className="w-1 h-5 rounded-full bg-hud-green" />
+        <h2 className="hud-title">Avances / cautions — chauffeurs Condition-Vente existants</h2>
+      </div>
+      <div className="p-4 space-y-3">
+        <p className="text-xs text-gray-600 font-semibold">
+          Saisissez l&apos;avance (caution) déjà versée par chaque chauffeur : elle est immédiatement
+          comptée dans sa progression et déduite du reste à verser. Chaque saisie s&apos;ajoute à l&apos;avance existante.
+        </p>
+        {flash && (
+          <div className="rounded-lg p-2.5 border-2 border-emerald-400 bg-emerald-50 text-emerald-800 font-bold text-sm">
+            ✓ {flash}
+          </div>
+        )}
+        {loading ? (
+          <p className="text-sm text-hud-green animate-pulse tracking-widest font-bold">⟳ CHARGEMENT...</p>
+        ) : rows.length === 0 ? (
+          <p className="text-sm text-gray-500 italic">Aucun chauffeur Condition-Vente actif.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="hud-table">
+              <thead>
+                <tr>
+                  <th>Chauffeur</th>
+                  <th>Montant fixé</th>
+                  <th>Versé</th>
+                  <th>Avance actuelle</th>
+                  <th>Reste à verser</th>
+                  <th>Progression</th>
+                  <th>Ajouter une avance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.driverId}>
+                    <td>
+                      <span className="font-bold text-gray-800">{r.fullName}</span>
+                      <span className="block font-mono text-[11px] text-gray-500">{r.code}</span>
+                    </td>
+                    <td className="font-semibold">{formatFCFA(r.totalFixed)}</td>
+                    <td className="font-semibold">{formatFCFA(r.totalPaid)}</td>
+                    <td>
+                      <span className={r.cautionAdvance > 0 ? 'text-hud-green font-bold' : 'text-gray-400'}>
+                        {formatFCFA(r.cautionAdvance)}
+                      </span>
+                    </td>
+                    <td className="font-bold text-empire-rouge">{formatFCFA(r.resteAPayer)}</td>
+                    <td>
+                      <div className="flex items-center gap-2 min-w-[120px]">
+                        <div className="progress-bar flex-1">
+                          <div
+                            className={`progress-fill ${r.percent >= 90 ? 'bg-hud-green' : r.percent >= 50 ? 'bg-hud-cyan' : 'bg-empire-rouge'}`}
+                            style={{ width: `${r.percent}%` }}
+                          />
+                        </div>
+                        <span className="text-xs font-bold text-gray-600">{r.percent}%</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          value={inputs[r.driverId] ?? ''}
+                          onChange={(e) => setInputs((prev) => ({ ...prev, [r.driverId]: e.target.value }))}
+                          placeholder="Montant"
+                          className="form-input w-28"
+                        />
+                        <button
+                          onClick={() => saveAdvance(r)}
+                          disabled={savingId === r.driverId || !inputs[r.driverId]}
+                          className="btn-primary text-xs py-1.5 px-3 disabled:opacity-40"
+                        >
+                          {savingId === r.driverId ? '...' : 'Appliquer'}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
