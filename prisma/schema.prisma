@@ -33,6 +33,11 @@ enum PaymentMode {
   AUTRE
 }
 
+enum AccountingType {
+  ENTREE
+  SORTIE
+}
+
 model User {
   id           String   @id @default(cuid())
   username     String   @unique
@@ -54,6 +59,7 @@ model User {
   chatMessages     ChatMessage[]        @relation("ChatMessageAuthor")
   ownerCommissions     OwnerCommission[]     @relation("OwnerCommissionEnteredBy")
   ownerPrefinancement  OwnerPrefinancement[] @relation("OwnerPrefinancementEnteredBy")
+  accountingEntered    AccountingEntry[]     @relation("AccountingEnteredBy")
 
   @@map("users")
 }
@@ -267,6 +273,26 @@ model ChatMessage {
   createdAt DateTime @default(now())
 
   @@map("chat_messages")
+}
+
+// Comptabilité Empire : flux de trésorerie (entrées / sorties) saisi manuellement.
+model AccountingEntry {
+  id          String         @id @default(cuid())
+  date        DateTime
+  type        AccountingType
+  category    String         // ex: "Recette flotte", "Salaire", "Carburant", "Réparation"...
+  label       String         // libellé de l'opération
+  amount      Decimal        @db.Decimal(14, 2) // toujours positif ; le signe vient du type
+  paymentMode PaymentMode    @default(ESPECES)
+  note        String?
+  enteredById String
+  createdAt   DateTime       @default(now())
+
+  enteredBy User @relation("AccountingEnteredBy", fields: [enteredById], references: [id])
+
+  @@index([date])
+  @@index([type])
+  @@map("accounting_entries")
 }
 
 model AuditLog {

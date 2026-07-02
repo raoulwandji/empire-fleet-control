@@ -11,6 +11,8 @@ export const config = {
     '/pending-drivers/:path*',
     '/owners/:path*',
     '/reports/:path*',
+    '/accounting/:path*',
+    '/settings/:path*',
     '/users/:path*',
     '/assignments/:path*',
     '/payments/:path*',

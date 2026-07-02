@@ -15,8 +15,10 @@ const links = [
   { href: '/pending-drivers', label: 'En attente' },
   { href: '/owners', label: 'Propriétaires', managerOnly: true },
   { href: '/reports', label: 'Rapports', managerOnly: true },
+  { href: '/accounting', label: 'Comptabilité' },
   { href: '/users', label: 'Utilisateurs', managerOnly: true },
   { href: '/assignments', label: 'Affectations', managerOnly: true },
+  { href: '/settings', label: 'Paramètres', adminOnly: true },
 ];
 
 function roleLabel(role?: string) {
@@ -115,7 +117,7 @@ export default function Navbar() {
       {/* Liens de navigation — scrollables si l'écran est étroit */}
       <div className="flex gap-1 text-sm font-medium overflow-x-auto flex-1 min-w-0">
         {links
-          .filter((l) => !l.managerOnly || isAdminOrManager)
+          .filter((l) => (!l.managerOnly || isAdminOrManager) && (!l.adminOnly || role === 'ADMIN'))
           .map((l) => {
             const active = pathname?.startsWith(l.href);
             return (
