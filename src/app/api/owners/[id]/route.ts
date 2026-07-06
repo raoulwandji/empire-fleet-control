@@ -7,11 +7,14 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   try {
     await requireSession();
 
-    const now = new Date();
-    const day = now.getDay();
+    // Semaine ciblée : paramètre ?weekStart=YYYY-MM-DD (normalisé au lundi),
+    // sinon la semaine en cours par défaut.
+    const weekParam = req.nextUrl.searchParams.get('weekStart');
+    const base = weekParam ? new Date(weekParam) : new Date();
+    const day = base.getDay();
     const diff = day === 0 ? -6 : 1 - day;
-    const weekStart = new Date(now);
-    weekStart.setDate(now.getDate() + diff);
+    const weekStart = new Date(base);
+    weekStart.setDate(base.getDate() + diff);
     weekStart.setHours(0, 0, 0, 0);
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekStart.getDate() + 7);

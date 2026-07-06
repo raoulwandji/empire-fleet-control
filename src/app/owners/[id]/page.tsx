@@ -167,14 +167,16 @@ export default function OwnerDetailPage() {
 
   const [owner, setOwner] = useState<Owner | null>(null);
   const [weekStart, setWeekStart] = useState('');
+  const [selectedWeek, setSelectedWeek] = useState(''); // '' = semaine en cours
   const [loading, setLoading] = useState(true);
   const [showCommForm, setShowCommForm] = useState(false);
   const [showPrefForm, setShowPrefForm] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  function reload() {
+  function reload(week = selectedWeek) {
     setLoading(true);
-    fetch(`/api/owners/${id}`)
+    const qs = week ? `?weekStart=${encodeURIComponent(week)}` : '';
+    fetch(`/api/owners/${id}${qs}`)
       .then((r) => r.json())
       .then((data) => { setOwner(data.owner); setWeekStart(data.weekStart); setLoading(false); });
   }
@@ -253,6 +255,31 @@ export default function OwnerDetailPage() {
               className="btn-danger text-xs px-3 py-1.5 shrink-0"
             >
               {deleting ? 'Suppression...' : 'Supprimer le propriétaire'}
+            </button>
+          )}
+        </div>
+
+        {/* Filtre : semaine du bilan */}
+        <div className="card p-4 flex flex-wrap items-end gap-3">
+          <div>
+            <label className="hud-label">Semaine du bilan</label>
+            <input
+              type="date"
+              className="hud-input"
+              value={selectedWeek || currentWeekIso}
+              onChange={(e) => { setSelectedWeek(e.target.value); reload(e.target.value); }}
+            />
+          </div>
+          <div className="text-xs text-gray-500 pb-2">
+            Bilan affiché pour la semaine du{' '}
+            <span className="text-hud-cyan font-semibold">{weekStart ? fmtDate(weekStart) : '…'}</span>
+          </div>
+          {selectedWeek && (
+            <button
+              onClick={() => { setSelectedWeek(''); reload(''); }}
+              className="btn-secondary text-xs py-1.5 px-3 ml-auto"
+            >
+              Semaine en cours
             </button>
           )}
         </div>
