@@ -30,7 +30,7 @@ type Entry = {
 
 // Catégories suggérées (l'utilisateur peut saisir librement)
 const CAT_ENTREES = ['Recette flotte', 'Caution reçue', 'Commission', 'Apport', 'Autre entrée'];
-const CAT_SORTIES = ['Salaire', 'Carburant', 'Réparation', 'Pièces', 'Assurance', 'Loyer bureau', 'Taxe / impôt', 'Préfinancement', 'Autre dépense'];
+const CAT_SORTIES = ['Salaire', 'Carburant', 'Réparation', 'Pièces', 'Assurance', 'Loyer bureau', 'Taxe / impôt', 'Préfinancement', 'Livre Ton École', 'GPS installation', 'Formation auto-école', 'ELA', 'Autre dépense'];
 
 const MODE_LABELS: Record<string, string> = {
   ESPECES: 'Espèces', MOBILE_MONEY: 'Mobile Money', VIREMENT: 'Virement', AUTRE: 'Autre',

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import { useSession } from 'next-auth/react';
 import { useCapabilities } from '@/lib/useCapabilities';
@@ -10,11 +11,14 @@ type Owner = { id: string; fullName: string; phone: string; location: string | n
 
 export default function OwnersPage() {
   const { data: session } = useSession();
+  const router = useRouter();
   const { can } = useCapabilities();
   const isAdminOrManager = can('owners');
+  const canReports = can('reports');
 
   const [owners, setOwners] = useState<Owner[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
 
   // Formulaire création
   const [showForm, setShowForm] = useState(false);
@@ -71,6 +75,36 @@ export default function OwnersPage() {
           )}
         </div>
 
+        {/* Filtre : recherche + sélection du bilan d'un propriétaire */}
+        <div className="card p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="hud-label">Rechercher un propriétaire</label>
+            <input
+              className="hud-input"
+              placeholder="Nom, téléphone, localisation..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="hud-label">Voir le bilan / rapport d&apos;un propriétaire</label>
+            <select
+              className="hud-select"
+              defaultValue=""
+              onChange={(e) => {
+                const id = e.target.value;
+                if (!id) return;
+                router.push(canReports ? `/reports?ownerId=${id}` : `/owners/${id}`);
+              }}
+            >
+              <option value="">— Sélectionner pour ouvrir le bilan —</option>
+              {[...owners].sort((a, b) => a.fullName.localeCompare(b.fullName)).map((o) => (
+                <option key={o.id} value={o.id}>{o.fullName}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
         {/* Formulaire création */}
         {showForm && (
           <div className="card p-5">
@@ -101,9 +135,20 @@ export default function OwnersPage() {
           <p className="text-gray-500 text-sm">Chargement...</p>
         ) : owners.length === 0 ? (
           <div className="card p-8 text-center text-gray-500">Aucun propriétaire enregistré.</div>
-        ) : (
+        ) : (() => {
+          const q = search.trim().toLowerCase();
+          const filtered = q
+            ? owners.filter((o) =>
+                o.fullName.toLowerCase().includes(q) ||
+                o.phone.toLowerCase().includes(q) ||
+                (o.location ?? '').toLowerCase().includes(q))
+            : owners;
+          if (filtered.length === 0) {
+            return <div className="card p-8 text-center text-gray-500">Aucun propriétaire ne correspond à « {search} ».</div>;
+          }
+          return (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {owners.map((owner) => (
+            {filtered.map((owner) => (
               <Link key={owner.id} href={`/owners/${owner.id}`} className="card-hover p-5 block">
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-full bg-hud-cyan/10 border border-hud-cyan/30 flex items-center justify-center shrink-0">
@@ -121,7 +166,8 @@ export default function OwnersPage() {
               </Link>
             ))}
           </div>
-        )}
+          );
+        })()}
       </div>
     </div>
   );

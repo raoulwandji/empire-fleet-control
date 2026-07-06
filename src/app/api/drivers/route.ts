@@ -46,22 +46,37 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: 'desc' },
     });
 
-    // Calcul du statut "a versé hier" pour chaque chauffeur
-    const yesterdayStart = new Date();
+    // Statut de versement : on prend en compte le JOUR EN COURS (aujourd'hui) et,
+    // en complément, la veille (pour signaler un versement fait hier mais pas encore aujourd'hui).
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+    const yesterdayStart = new Date(todayStart);
     yesterdayStart.setDate(yesterdayStart.getDate() - 1);
-    yesterdayStart.setHours(0, 0, 0, 0);
-    const yesterdayEnd = new Date();
+    const yesterdayEnd = new Date(todayEnd);
     yesterdayEnd.setDate(yesterdayEnd.getDate() - 1);
-    yesterdayEnd.setHours(23, 59, 59, 999);
 
-    const paidTodayIds = await prisma.payment.findMany({
-      where: { date: { gte: yesterdayStart, lte: yesterdayEnd } },
-      select: { driverId: true },
-      distinct: ['driverId'],
-    });
-    const paidSet = new Set(paidTodayIds.map((p) => p.driverId));
+    const [paidTodayRows, paidYesterdayRows] = await Promise.all([
+      prisma.payment.findMany({
+        where: { date: { gte: todayStart, lte: todayEnd } },
+        select: { driverId: true },
+        distinct: ['driverId'],
+      }),
+      prisma.payment.findMany({
+        where: { date: { gte: yesterdayStart, lte: yesterdayEnd } },
+        select: { driverId: true },
+        distinct: ['driverId'],
+      }),
+    ]);
+    const paidTodaySet = new Set(paidTodayRows.map((p) => p.driverId));
+    const paidYesterdaySet = new Set(paidYesterdayRows.map((p) => p.driverId));
 
-    const result = drivers.map((d) => ({ ...d, paidToday: paidSet.has(d.id) }));
+    const result = drivers.map((d) => ({
+      ...d,
+      paidToday: paidTodaySet.has(d.id),
+      paidYesterday: paidYesterdaySet.has(d.id),
+    }));
 
     return NextResponse.json(result);
   } catch (err) {

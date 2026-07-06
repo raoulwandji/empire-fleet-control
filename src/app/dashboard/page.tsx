@@ -27,6 +27,8 @@ export default function DashboardPage() {
   const router = useRouter();
   const [mode, setMode] = useState<'total' | 'week'>('total');
   const [weekStartDate, setWeekStartDate] = useState('');
+  // Semaine sélectionnée pour le récapitulatif & le cumul hebdo ('' = semaine en cours)
+  const [recapWeek, setRecapWeek] = useState('');
   const [conditionVente, setConditionVente] = useState<Ranked[]>([]);
   const [location, setLocation] = useState<Ranked[]>([]);
   const [loading, setLoading] = useState(true);
@@ -88,8 +90,26 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <WeeklyTotalsPanel />
-        <EmpireWeeklyPanel />
+        {/* Filtre de semaine pour le récapitulatif & le cumul hebdomadaire */}
+        <div className="card p-3 flex items-center gap-3 flex-wrap">
+          <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Semaine du récapitulatif</span>
+          <input
+            type="date"
+            value={recapWeek}
+            onChange={(e) => setRecapWeek(e.target.value)}
+            className="hud-input !w-auto text-sm"
+          />
+          {recapWeek ? (
+            <button onClick={() => setRecapWeek('')} className="btn-secondary text-xs py-1 px-3">
+              Revenir à la semaine en cours
+            </button>
+          ) : (
+            <span className="text-xs text-gray-500 italic">Semaine en cours</span>
+          )}
+        </div>
+
+        <WeeklyTotalsPanel week={recapWeek} />
+        <EmpireWeeklyPanel week={recapWeek} />
 
         {/* Graphiques d'évolution */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -105,7 +125,7 @@ export default function DashboardPage() {
   );
 }
 
-function WeeklyTotalsPanel() {
+function WeeklyTotalsPanel({ week }: { week?: string }) {
   const [data, setData] = useState<{
     weekStartDate: string;
     conditionVente: { totalAmount: number; paymentCount: number; driverCount: number };
@@ -114,11 +134,12 @@ function WeeklyTotalsPanel() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/dashboard/weekly-totals')
+    setLoading(true);
+    fetch(`/api/dashboard/weekly-totals${week ? `?week=${week}` : ''}`)
       .then((r) => r.json())
       .then((d) => { setData(d); setLoading(false); })
       .catch(() => setLoading(false));
-  }, []);
+  }, [week]);
 
   const weekLabel = data?.weekStartDate
     ? new Date(data.weekStartDate).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
@@ -191,7 +212,7 @@ type EmpireOwnerStat = {
   commission: number; prefinancement: number; net: number;
 };
 
-function EmpireWeeklyPanel() {
+function EmpireWeeklyPanel({ week }: { week?: string }) {
   const [data, setData] = useState<{
     weekStart: string;
     totalVersements: number;
@@ -203,11 +224,12 @@ function EmpireWeeklyPanel() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/dashboard/empire-weekly')
+    setLoading(true);
+    fetch(`/api/dashboard/empire-weekly${week ? `?week=${week}` : ''}`)
       .then((r) => r.json())
       .then((d) => { setData(d); setLoading(false); })
       .catch(() => setLoading(false));
-  }, []);
+  }, [week]);
 
   const weekLabel = data?.weekStart
     ? new Date(data.weekStart).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })

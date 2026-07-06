@@ -82,6 +82,9 @@ export default function ReportsPage() {
       }
       fetch('/api/owners').then((r) => r.json()).then((d) => setOwners(Array.isArray(d) ? d : (d.owners ?? [])));
     });
+    // Présélection d'un propriétaire passé en paramètre d'URL (?ownerId=...) depuis la cellule Propriétaires.
+    const preselect = new URLSearchParams(window.location.search).get('ownerId');
+    if (preselect) setOwnerId(preselect);
   }, [status, router]);
 
   async function loadReport() {

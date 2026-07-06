@@ -1,21 +1,22 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireSession, handleAccessError } from '@/lib/access';
 
-// GET /api/dashboard/empire-weekly
-// Retourne pour la semaine en cours :
+// GET /api/dashboard/empire-weekly?week=YYYY-MM-DD
+// Retourne pour une semaine (par défaut la semaine en cours) :
 // - cumul commissions Empire sur tous les propriétaires
 // - cumul préfinancements Empire sur tous les propriétaires
 // - liste propriétaires avec versements bruts, commissions, préfinancements, net à verser
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     await requireSession();
 
-    const now = new Date();
-    const day = now.getDay();
+    const weekParam = req.nextUrl.searchParams.get('week');
+    const ref = weekParam ? new Date(weekParam) : new Date();
+    const day = ref.getDay();
     const diff = day === 0 ? -6 : 1 - day;
-    const weekStart = new Date(now);
-    weekStart.setDate(now.getDate() + diff);
+    const weekStart = new Date(ref);
+    weekStart.setDate(ref.getDate() + diff);
     weekStart.setHours(0, 0, 0, 0);
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekStart.getDate() + 7);

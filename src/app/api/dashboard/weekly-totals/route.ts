@@ -1,16 +1,19 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireSession, handleAccessError } from '@/lib/access';
-import { getWeekStart } from '@/lib/business';
+import { getWeekStart, getWeekEnd } from '@/lib/business';
 
-// GET /api/dashboard/weekly-totals
-// Cumul des versements/loyers de la semaine en cours, séparés par type de contrat.
-export async function GET() {
+// GET /api/dashboard/weekly-totals?week=YYYY-MM-DD
+// Cumul des versements/loyers d'une semaine (par défaut la semaine en cours), par type de contrat.
+export async function GET(req: NextRequest) {
   try {
     await requireSession();
 
-    const weekStart = getWeekStart(new Date());
-    const now = new Date();
+    const weekParam = req.nextUrl.searchParams.get('week');
+    const ref = weekParam ? new Date(weekParam) : new Date();
+    const weekStart = getWeekStart(ref);
+    // Semaine choisie : borne à la fin de semaine ; semaine en cours : borne à maintenant.
+    const now = weekParam ? getWeekEnd(weekStart) : new Date();
 
     const [cvResult, locResult] = await Promise.all([
       // Total versé semaine en cours — Condition-Vente

@@ -294,6 +294,7 @@ function CvAdvancesPanel() {
   const [rows, setRows] = useState<CvAdvanceRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [inputs, setInputs] = useState<Record<string, string>>({});
+  const [mode, setMode] = useState<'add' | 'set'>('add');
   const [savingId, setSavingId] = useState<string | null>(null);
   const [flash, setFlash] = useState('');
 
@@ -310,23 +311,36 @@ function CvAdvancesPanel() {
   async function saveAdvance(row: CvAdvanceRow) {
     const raw = inputs[row.driverId];
     const amount = Number(raw);
-    if (!raw || isNaN(amount) || amount <= 0) return;
+    // En mode "Corriger", 0 est autorisé (remise à zéro) ; en mode "Ajouter", montant > 0 requis.
+    if (raw === undefined || raw === '' || isNaN(amount) || amount < 0 || (mode === 'add' && amount <= 0)) return;
     setSavingId(row.driverId);
-    const res = await fetch('/api/caution', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        driverId: row.driverId,
-        date: new Date().toISOString().slice(0, 10),
-        type: 'DEPOT_INITIAL',
-        amount,
-        reason: 'Avance / caution appliquée à la progression (saisie groupée)',
-      }),
-    });
+
+    const res = mode === 'set'
+      ? await fetch(`/api/drivers/${row.driverId}/set-caution`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target: amount }),
+        })
+      : await fetch('/api/caution', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            driverId: row.driverId,
+            date: new Date().toISOString().slice(0, 10),
+            type: 'DEPOT_INITIAL',
+            amount,
+            reason: 'Avance / caution appliquée à la progression (saisie groupée)',
+          }),
+        });
+
     setSavingId(null);
     if (res.ok) {
       setInputs((prev) => ({ ...prev, [row.driverId]: '' }));
-      setFlash(`Avance de ${formatFCFA(amount)} appliquée à ${row.fullName}`);
+      setFlash(
+        mode === 'set'
+          ? `Caution de ${row.fullName} corrigée à ${formatFCFA(amount)}`
+          : `Avance de ${formatFCFA(amount)} appliquée à ${row.fullName}`,
+      );
       setTimeout(() => setFlash(''), 2500);
       fetchRows();
     }
@@ -340,9 +354,26 @@ function CvAdvancesPanel() {
       </div>
       <div className="p-4 space-y-3">
         <p className="text-xs text-gray-600 font-semibold">
-          Saisissez l&apos;avance (caution) déjà versée par chaque chauffeur : elle est immédiatement
-          comptée dans sa progression et déduite du reste à verser. Chaque saisie s&apos;ajoute à l&apos;avance existante.
+          Gérez la caution/avance de chaque chauffeur Condition-Vente : elle est comptée dans sa
+          progression et déduite du reste à verser.
         </p>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Mode :</span>
+          <div className="inline-flex rounded-lg border-2 border-hud-line overflow-hidden">
+            <button
+              onClick={() => setMode('add')}
+              className={`text-xs font-bold px-3 py-1.5 transition-colors ${mode === 'add' ? 'bg-hud-green text-white' : 'bg-white text-gray-600'}`}
+            >
+              + Ajouter une avance
+            </button>
+            <button
+              onClick={() => setMode('set')}
+              className={`text-xs font-bold px-3 py-1.5 transition-colors ${mode === 'set' ? 'bg-hud-cyan text-white' : 'bg-white text-gray-600'}`}
+            >
+              ✎ Corriger (montant exact)
+            </button>
+          </div>
+        </div>
         {flash && (
           <div className="rounded-lg p-2.5 border-2 border-emerald-400 bg-emerald-50 text-emerald-800 font-bold text-sm">
             ✓ {flash}
@@ -363,7 +394,7 @@ function CvAdvancesPanel() {
                   <th>Avance actuelle</th>
                   <th>Reste à verser</th>
                   <th>Progression</th>
-                  <th>Ajouter une avance</th>
+                  <th>{mode === 'set' ? 'Corriger la caution' : 'Ajouter une avance'}</th>
                 </tr>
               </thead>
               <tbody>
@@ -398,15 +429,15 @@ function CvAdvancesPanel() {
                           type="number"
                           value={inputs[r.driverId] ?? ''}
                           onChange={(e) => setInputs((prev) => ({ ...prev, [r.driverId]: e.target.value }))}
-                          placeholder="Montant"
+                          placeholder={mode === 'set' ? 'Total exact' : 'Montant'}
                           className="form-input w-28"
                         />
                         <button
                           onClick={() => saveAdvance(r)}
-                          disabled={savingId === r.driverId || !inputs[r.driverId]}
+                          disabled={savingId === r.driverId || inputs[r.driverId] === undefined || inputs[r.driverId] === ''}
                           className="btn-primary text-xs py-1.5 px-3 disabled:opacity-40"
                         >
-                          {savingId === r.driverId ? '...' : 'Appliquer'}
+                          {savingId === r.driverId ? '...' : mode === 'set' ? 'Corriger' : 'Appliquer'}
                         </button>
                       </div>
                     </td>

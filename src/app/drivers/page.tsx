@@ -13,22 +13,26 @@ type Driver = {
   ownerName: string; totalPriceFixed: string | null; cautionReference: string | null;
   assignments: { employee: { id: string; fullName: string } }[];
   paidToday: boolean;
+  paidYesterday: boolean;
 };
 
-// Jour de la veille (0=dim, 1=lun, 2=mar, ..., 6=sam)
-const yesterday = new Date();
-yesterday.setDate(yesterday.getDate() - 1);
-const yesterdayDay = yesterday.getDay(); // 0=dimanche, 2=mardi
+// Jour EN COURS (0=dim, 1=lun, 2=mar, ..., 6=sam)
+const todayDay = new Date().getDay(); // 0=dimanche, 2=mardi
 
-function PaymentBadge({ paidToday }: { paidToday: boolean }) {
+function PaymentBadge({ paidToday, paidYesterday }: { paidToday: boolean; paidYesterday: boolean }) {
+  // On prend en compte le jour en cours : versement fait aujourd'hui = à jour.
   if (paidToday) {
-    return <span className="flex items-center gap-1.5 text-emerald-400 text-xs font-semibold"><span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse inline-block" />Versé hier</span>;
+    return <span className="flex items-center gap-1.5 text-emerald-400 text-xs font-semibold"><span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse inline-block" />Versé aujourd&apos;hui</span>;
   }
-  if (yesterdayDay === 0) {
+  if (todayDay === 0) {
     return <span className="flex items-center gap-1.5 text-sky-400 text-xs font-semibold"><span className="w-2 h-2 rounded-full bg-sky-400 inline-block" />Dimanche — Jour free</span>;
   }
-  if (yesterdayDay === 2) {
+  if (todayDay === 2) {
     return <span className="flex items-center gap-1.5 text-purple-400 text-xs font-semibold"><span className="w-2 h-2 rounded-full bg-purple-400 inline-block" />Mardi — Jour de repos</span>;
+  }
+  // Versé la veille mais pas encore aujourd'hui : rappel doux plutôt qu'alerte rouge.
+  if (paidYesterday) {
+    return <span className="flex items-center gap-1.5 text-amber-400 text-xs font-semibold"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />Versé hier — en attente du jour</span>;
   }
   return <span className="flex items-center gap-1.5 text-red-400 text-xs font-semibold"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />En attente</span>;
 }
@@ -136,11 +140,12 @@ export default function DriversPage() {
               ) : drivers.map((d) => (
                 <tr key={d.id} className={
                   d.paidToday ? 'bg-emerald-900/20 border-l-2 border-emerald-500'
-                  : yesterdayDay === 0 ? 'bg-sky-900/10 border-l-2 border-sky-600'
-                  : yesterdayDay === 2 ? 'bg-purple-900/10 border-l-2 border-purple-600'
+                  : todayDay === 0 ? 'bg-sky-900/10 border-l-2 border-sky-600'
+                  : todayDay === 2 ? 'bg-purple-900/10 border-l-2 border-purple-600'
+                  : d.paidYesterday ? 'bg-amber-900/10 border-l-2 border-amber-600'
                   : 'bg-red-900/15 border-l-2 border-red-700'
                 }>
-                  <td><PaymentBadge paidToday={d.paidToday} /></td>
+                  <td><PaymentBadge paidToday={d.paidToday} paidYesterday={d.paidYesterday} /></td>
                   <td>
                     <Link href={`/drivers/${d.id}`} className="neon-link font-mono font-bold">{d.code}</Link>
                   </td>

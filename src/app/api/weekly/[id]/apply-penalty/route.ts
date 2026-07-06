@@ -3,9 +3,9 @@ import { prisma } from '@/lib/prisma';
 import { requireSession, requireDriverWriteAccess, handleAccessError, logAudit } from '@/lib/access';
 
 // POST /api/weekly/[id]/apply-penalty
-// Applique manuellement la penalite deja calculee :
-// - Location -> cree un mouvement de caution DEDUCTION_SANCTION
-// - Condition-Vente -> marque la penalite comme appliquee (vient s'ajouter au reste a payer)
+// Applique manuellement la penalite deja calculee.
+// La penalite N'EST PLUS deduite de la caution des chauffeurs (Location comme Condition-Vente) :
+// elle est seulement marquee comme appliquee et suivie (et vient s'ajouter au reste a payer en CV).
 export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await requireSession();
@@ -30,32 +30,11 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
       return NextResponse.json({ error: 'Aucune pénalité à appliquer pour cette semaine.' }, { status: 400 });
     }
 
-    const result = await prisma.$transaction(async (tx) => {
-      if (tracking.driver.contractType === 'LOCATION') {
-        const agg = await tx.cautionMovement.aggregate({
-          where: { driverId: tracking.driverId },
-          _sum: { amount: true },
-        });
-        const currentBalance = Number(agg._sum.amount ?? 0);
-        const newBalance = currentBalance - penaltyAmount;
-
-        await tx.cautionMovement.create({
-          data: {
-            driverId: tracking.driverId,
-            date: new Date(),
-            type: 'DEDUCTION_SANCTION',
-            amount: -penaltyAmount,
-            reason: `Pénalité heures manquantes — semaine du ${tracking.weekStartDate.toLocaleDateString('fr-FR')}`,
-            resultBalance: newBalance,
-            enteredById: session.user.id,
-          },
-        });
-      }
-
-      return tx.weeklyTracking.update({
-        where: { id: tracking.id },
-        data: { penaltyApplied: true, penaltyAppliedAt: new Date() },
-      });
+    // La pénalité n'est plus déduite de la caution : on marque seulement la pénalité
+    // comme appliquée (le suivi et, en Condition-Vente, le reste à payer en tiennent compte).
+    const result = await prisma.weeklyTracking.update({
+      where: { id: tracking.id },
+      data: { penaltyApplied: true, penaltyAppliedAt: new Date() },
     });
 
     await logAudit(session.user.id, 'APPLY_PENALTY', 'WeeklyTracking', tracking.id, {
