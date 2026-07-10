@@ -50,7 +50,7 @@ export const paymentCreateSchema = z.object({
   driverId: z.string(),
   date: z.string(), // ISO
   amount: z.number().positive(),
-  paymentMode: z.enum(['ESPECES', 'MOBILE_MONEY', 'VIREMENT', 'AUTRE']).default('ESPECES'),
+  paymentMode: z.enum(['ESPECES', 'MOBILE_MONEY', 'VIREMENT', 'AUTRE', 'PORTEFEUILLE']).default('ESPECES'),
   comment: z.string().optional(),
   // Mouvement de portefeuille optionnel, intégré au moment de la saisie du versement (CV uniquement) :
   // DEPOT pour garder un surplus, RETRAIT pour couvrir une partie du versement avec le solde existant.

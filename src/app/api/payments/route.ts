@@ -36,9 +36,14 @@ export async function POST(req: NextRequest) {
     const date = new Date(data.date);
     const unusual = isUnusualPaymentDay(date);
 
-    // Mouvement de portefeuille intégré à la saisie du versement (CV uniquement) :
-    // dépôt du surplus ou retrait pour couvrir une partie du versement via le solde existant.
-    if (data.walletMovement) {
+    // Mode de paiement "Portefeuille" : le versement entier est réglé via le solde du
+    // portefeuille — on force un retrait du montant total, quel que soit le champ manuel envoyé.
+    const isWalletPayment = data.paymentMode === 'PORTEFEUILLE';
+    const effectiveWalletMovement = isWalletPayment
+      ? { type: 'RETRAIT' as const, amount: data.amount }
+      : data.walletMovement;
+
+    if (effectiveWalletMovement) {
       const driver = await prisma.driver.findUnique({ where: { id: data.driverId } });
       if (!driver || driver.contractType !== 'CONDITION_VENTE') {
         return NextResponse.json(
@@ -62,10 +67,10 @@ export async function POST(req: NextRequest) {
       });
 
       let movement = null;
-      if (data.walletMovement) {
-        const signedAmount = data.walletMovement.type === 'RETRAIT'
-          ? -Math.abs(data.walletMovement.amount)
-          : Math.abs(data.walletMovement.amount);
+      if (effectiveWalletMovement) {
+        const signedAmount = effectiveWalletMovement.type === 'RETRAIT'
+          ? -Math.abs(effectiveWalletMovement.amount)
+          : Math.abs(effectiveWalletMovement.amount);
 
         const agg = await tx.walletMovement.aggregate({
           where: { driverId: data.driverId },
@@ -73,13 +78,17 @@ export async function POST(req: NextRequest) {
         });
         const newBalance = Number(agg._sum.amount ?? 0) + signedAmount;
 
+        const reason = isWalletPayment
+          ? `Versement du ${date.toLocaleDateString('fr-FR')} réglé via le portefeuille`
+          : `Intégré au versement du ${date.toLocaleDateString('fr-FR')}`;
+
         movement = await tx.walletMovement.create({
           data: {
             driverId: data.driverId,
             date,
-            type: data.walletMovement.type,
+            type: effectiveWalletMovement.type,
             amount: signedAmount,
-            reason: `Intégré au versement du ${date.toLocaleDateString('fr-FR')}`,
+            reason,
             resultBalance: newBalance,
             enteredById: session.user.id,
           },

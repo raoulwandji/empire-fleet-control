@@ -7,7 +7,7 @@ import { z } from 'zod';
 const paymentUpdateSchema = z.object({
   date: z.string().min(1),
   amount: z.number().positive(),
-  paymentMode: z.enum(['ESPECES', 'MOBILE_MONEY', 'VIREMENT', 'AUTRE']),
+  paymentMode: z.enum(['ESPECES', 'MOBILE_MONEY', 'VIREMENT', 'AUTRE', 'PORTEFEUILLE']),
   comment: z.string().optional(),
 });
 

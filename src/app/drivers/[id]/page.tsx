@@ -375,11 +375,16 @@ function PaymentsTab({ driver, canWrite, onChange }: { driver: DriverDetail; can
           </div>
           <div>
             <label className="hud-label">Mode de paiement</label>
-            <select value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)} className="form-select w-40">
+            <select
+              value={paymentMode}
+              onChange={(e) => { setPaymentMode(e.target.value); setWalletAction(''); setWalletAmount(''); }}
+              className="form-select w-44"
+            >
               <option value="ESPECES">Espèces</option>
               <option value="MOBILE_MONEY">Mobile Money</option>
               <option value="VIREMENT">Virement</option>
               <option value="AUTRE">Autre</option>
+              {isCV && <option value="PORTEFEUILLE">Portefeuille</option>}
             </select>
           </div>
           <div className="flex-1 min-w-[160px]">
@@ -387,7 +392,13 @@ function PaymentsTab({ driver, canWrite, onChange }: { driver: DriverDetail; can
             <input value={comment} onChange={(e) => setComment(e.target.value)} className="form-input w-full" placeholder="Commentaire optionnel..." />
           </div>
 
-          {isCV && (
+          {paymentMode === 'PORTEFEUILLE' && (
+            <p className="text-xs text-hud-cyan w-full">
+              Le montant total du {label.toLowerCase()} sera déduit directement du solde du portefeuille.
+            </p>
+          )}
+
+          {isCV && paymentMode !== 'PORTEFEUILLE' && (
             <>
               <div>
                 <label className="hud-label">Portefeuille</label>
@@ -476,6 +487,7 @@ function PaymentsTab({ driver, canWrite, onChange }: { driver: DriverDetail; can
                       <option value="MOBILE_MONEY">Mobile Money</option>
                       <option value="VIREMENT">Virement</option>
                       <option value="AUTRE">Autre</option>
+                      {isCV && <option value="PORTEFEUILLE">Portefeuille</option>}
                     </select>
                   </td>
                   <td><input value={editComment} onChange={(e) => setEditComment(e.target.value)} className="form-input w-full" /></td>

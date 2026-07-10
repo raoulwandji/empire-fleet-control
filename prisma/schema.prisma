@@ -31,6 +31,7 @@ enum PaymentMode {
   MOBILE_MONEY
   VIREMENT
   AUTRE
+  PORTEFEUILLE
 }
 
 enum AccountingType {
