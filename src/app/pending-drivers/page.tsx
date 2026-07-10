@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import { formatFCFA } from '@/lib/business';
 import clsx from 'clsx';
@@ -17,22 +16,6 @@ type PendingDriver = {
   comment: string | null;
   enteredBy: { fullName: string; username?: string };
   createdAt: string;
-};
-
-type DriverLite = {
-  id: string;
-  code: string;
-  fullName: string;
-  phone: string;
-  contractType: 'CONDITION_VENTE' | 'LOCATION';
-  vehiclePlate: string;
-};
-
-type OwnerLite = {
-  id: string;
-  fullName: string;
-  phone: string;
-  location: string | null;
 };
 
 type PendingOwner = {
@@ -62,7 +45,7 @@ const EMPTY_OWNER_FORM = {
   comment: '',
 };
 
-const TABS = ['Prospects en attente', 'Propriétaires en attente', 'Chauffeurs', 'Propriétaires'] as const;
+const TABS = ['Chauffeur en attente', 'Propriétaires en attente'] as const;
 
 // Affiche l'identifiant (@username) de l'utilisateur qui a saisi la donnée, en plus de son nom.
 function fmtEntered(u?: { fullName: string; username?: string } | null) {
@@ -71,7 +54,7 @@ function fmtEntered(u?: { fullName: string; username?: string } | null) {
 }
 
 export default function PendingDriversPage() {
-  const [tab, setTab] = useState<typeof TABS[number]>('Prospects en attente');
+  const [tab, setTab] = useState<typeof TABS[number]>('Chauffeur en attente');
 
   return (
     <div>
@@ -82,7 +65,7 @@ export default function PendingDriversPage() {
             EN ATTENTE
           </h1>
           <p className="text-xs text-gray-500 tracking-widest uppercase">
-            Prospects, chauffeurs et propriétaires — avec fil de commentaires
+            Chauffeurs et propriétaires en attente — avec fil de commentaires
           </p>
         </div>
 
@@ -101,17 +84,15 @@ export default function PendingDriversPage() {
           ))}
         </div>
 
-        {tab === 'Prospects en attente' && <ProspectsSection />}
+        {tab === 'Chauffeur en attente' && <ProspectsSection />}
         {tab === 'Propriétaires en attente' && <PendingOwnersSection />}
-        {tab === 'Chauffeurs' && <DriversSection />}
-        {tab === 'Propriétaires' && <OwnersSection />}
       </div>
     </div>
   );
 }
 
 /* ─────────────────────────────────────────────────────────────
-   Fil de commentaires réutilisable — pour chacune des 3 entités
+   Fil de commentaires réutilisable
 ───────────────────────────────────────────────────────────── */
 function CommentThread({ getUrl, onPost }: { getUrl: string; onPost: (text: string) => Promise<Response> }) {
   const [comments, setComments] = useState<any[]>([]);
@@ -650,147 +631,3 @@ function PendingOwnersSection() {
   );
 }
 
-/* ─────────────────────────────────────────────────────────────
-   Section 2 : Chauffeurs (déjà en flotte) — fil de commentaires
-───────────────────────────────────────────────────────────── */
-function DriversSection() {
-  const [items, setItems] = useState<DriverLite[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [q, setQ] = useState('');
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    const params = new URLSearchParams();
-    if (q) params.set('q', q);
-    const res = await fetch(`/api/drivers?${params.toString()}`);
-    const d = await res.json();
-    setItems(Array.isArray(d) ? d : []);
-    setLoading(false);
-  }, [q]);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
-
-  return (
-    <div className="space-y-4">
-      <p className="text-sm text-gray-600">
-        Chauffeurs déjà en flotte — consultez ou ajoutez un commentaire sans quitter cette page.
-      </p>
-      <div className="card p-4 flex flex-wrap gap-3 items-end">
-        <div>
-          <label className="hud-label">Recherche</label>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nom, téléphone, plaque, code..." className="form-input w-64" />
-        </div>
-        <button onClick={fetchData} className="btn-secondary text-sm">Filtrer</button>
-      </div>
-
-      <div className="card p-4">
-        {loading ? (
-          <p className="text-gray-500 text-sm tracking-widest">⟳ Chargement...</p>
-        ) : items.length === 0 ? (
-          <p className="text-sm text-gray-500 italic">Aucun chauffeur trouvé.</p>
-        ) : (
-          <div>
-            {items.map((d) => (
-              <ExpandableRow
-                key={d.id}
-                label={
-                  <div>
-                    <Link href={`/drivers/${d.id}`} className="neon-link font-semibold">{d.fullName}</Link>
-                    <span className="font-mono text-xs text-hud-cyan ml-2">{d.code}</span>
-                    <div className="text-xs text-gray-500">
-                      {d.phone} · {d.vehiclePlate} ·{' '}
-                      <span className={d.contractType === 'CONDITION_VENTE' ? 'badge-cv' : 'badge-loc'}>
-                        {d.contractType === 'CONDITION_VENTE' ? 'CV' : 'Location'}
-                      </span>
-                    </div>
-                  </div>
-                }
-                comments={
-                  <CommentThread
-                    getUrl={`/api/comments?driverId=${d.id}`}
-                    onPost={(text) =>
-                      fetch('/api/comments', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ driverId: d.id, text }),
-                      })
-                    }
-                  />
-                }
-              />
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────────
-   Section 3 : Propriétaires — fil de commentaires
-───────────────────────────────────────────────────────────── */
-function OwnersSection() {
-  const [items, setItems] = useState<OwnerLite[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [q, setQ] = useState('');
-
-  useEffect(() => {
-    setLoading(true);
-    fetch('/api/owners')
-      .then((r) => r.json())
-      .then((d) => setItems(Array.isArray(d) ? d : []))
-      .finally(() => setLoading(false));
-  }, []);
-
-  const filtered = q
-    ? items.filter((o) => o.fullName.toLowerCase().includes(q.toLowerCase()) || o.phone.includes(q))
-    : items;
-
-  return (
-    <div className="space-y-4">
-      <p className="text-sm text-gray-600">
-        Propriétaires de véhicules — consultez ou ajoutez un commentaire sans quitter cette page.
-      </p>
-      <div className="card p-4 flex flex-wrap gap-3 items-end">
-        <div>
-          <label className="hud-label">Recherche</label>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nom, téléphone..." className="form-input w-64" />
-        </div>
-      </div>
-
-      <div className="card p-4">
-        {loading ? (
-          <p className="text-gray-500 text-sm tracking-widest">⟳ Chargement...</p>
-        ) : filtered.length === 0 ? (
-          <p className="text-sm text-gray-500 italic">Aucun propriétaire trouvé.</p>
-        ) : (
-          <div>
-            {filtered.map((o) => (
-              <ExpandableRow
-                key={o.id}
-                label={
-                  <div>
-                    <Link href={`/owners/${o.id}`} className="neon-link font-semibold">{o.fullName}</Link>
-                    <div className="text-xs text-gray-500">{o.phone}{o.location ? ` — ${o.location}` : ''}</div>
-                  </div>
-                }
-                comments={
-                  <CommentThread
-                    getUrl={`/api/owners/${o.id}/comments`}
-                    onPost={(text) =>
-                      fetch(`/api/owners/${o.id}/comments`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ text }),
-                      })
-                    }
-                  />
-                }
-              />
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
