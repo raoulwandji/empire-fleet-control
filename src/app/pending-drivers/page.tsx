@@ -35,6 +35,16 @@ type OwnerLite = {
   location: string | null;
 };
 
+type PendingOwner = {
+  id: string;
+  fullName: string;
+  phone: string;
+  location: string | null;
+  comment: string | null;
+  enteredBy: { fullName: string; username?: string };
+  createdAt: string;
+};
+
 const EMPTY_FORM = {
   fullName: '',
   phone: '',
@@ -45,7 +55,14 @@ const EMPTY_FORM = {
   comment: '',
 };
 
-const TABS = ['Prospects en attente', 'Chauffeurs', 'Propriétaires'] as const;
+const EMPTY_OWNER_FORM = {
+  fullName: '',
+  phone: '',
+  location: '',
+  comment: '',
+};
+
+const TABS = ['Prospects en attente', 'Propriétaires en attente', 'Chauffeurs', 'Propriétaires'] as const;
 
 // Affiche l'identifiant (@username) de l'utilisateur qui a saisi la donnée, en plus de son nom.
 function fmtEntered(u?: { fullName: string; username?: string } | null) {
@@ -85,6 +102,7 @@ export default function PendingDriversPage() {
         </div>
 
         {tab === 'Prospects en attente' && <ProspectsSection />}
+        {tab === 'Propriétaires en attente' && <PendingOwnersSection />}
         {tab === 'Chauffeurs' && <DriversSection />}
         {tab === 'Propriétaires' && <OwnersSection />}
       </div>
@@ -444,6 +462,190 @@ function ProspectTable({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Section 1bis : Propriétaires en attente (prospects, pas encore
+   intégrés à la table Owner) — CRUD + fil de commentaires
+───────────────────────────────────────────────────────────── */
+function PendingOwnersSection() {
+  const [items, setItems] = useState<PendingOwner[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [q, setQ] = useState('');
+
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState(EMPTY_OWNER_FORM);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    const params = new URLSearchParams();
+    if (q) params.set('q', q);
+    const res = await fetch(`/api/pending-owners?${params.toString()}`);
+    const d = await res.json();
+    setItems(Array.isArray(d) ? d : []);
+    setLoading(false);
+  }, [q]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  function openCreateForm() {
+    setEditingId(null);
+    setForm(EMPTY_OWNER_FORM);
+    setError('');
+    setShowForm(true);
+  }
+
+  function openEditForm(item: PendingOwner) {
+    setEditingId(item.id);
+    setForm({
+      fullName: item.fullName,
+      phone: item.phone,
+      location: item.location ?? '',
+      comment: item.comment ?? '',
+    });
+    setError('');
+    setShowForm(true);
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError('');
+    setSaving(true);
+
+    const payload = {
+      fullName: form.fullName,
+      phone: form.phone,
+      location: form.location || undefined,
+      comment: form.comment || undefined,
+    };
+
+    const res = await fetch(editingId ? `/api/pending-owners/${editingId}` : '/api/pending-owners', {
+      method: editingId ? 'PATCH' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    setSaving(false);
+
+    if (!res.ok) {
+      const data = await res.json();
+      setError(data.error ?? 'Erreur.');
+      return;
+    }
+
+    setShowForm(false);
+    fetchData();
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm('Supprimer ce propriétaire en attente ?')) return;
+    const res = await fetch(`/api/pending-owners/${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const data = await res.json();
+      alert(data.error ?? 'Erreur.');
+      return;
+    }
+    fetchData();
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <p className="text-sm text-gray-600">
+          Propriétaires prospects, en cours d'onboarding — pas encore intégrés à la liste officielle.
+        </p>
+        <button onClick={openCreateForm} className="btn-primary text-sm">
+          + Ajouter un propriétaire en attente
+        </button>
+      </div>
+
+      <div className="card p-4 flex flex-wrap gap-3 items-end">
+        <div>
+          <label className="hud-label">Recherche</label>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nom, téléphone..." className="form-input w-56" />
+        </div>
+        <button onClick={fetchData} className="btn-secondary text-sm">Filtrer</button>
+      </div>
+
+      {showForm && (
+        <form onSubmit={handleSubmit} className="card p-4 grid grid-cols-2 gap-3">
+          <h2 className="col-span-2 hud-title">
+            {editingId ? 'Modifier' : 'Ajouter'} un propriétaire en attente
+          </h2>
+          <div>
+            <label className="hud-label">Nom complet</label>
+            <input value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} required className="form-input w-full" />
+          </div>
+          <div>
+            <label className="hud-label">Téléphone</label>
+            <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} required className="form-input w-full" />
+          </div>
+          <div className="col-span-2">
+            <label className="hud-label">Localisation</label>
+            <input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} className="form-input w-full" />
+          </div>
+          <div className="col-span-2">
+            <label className="hud-label">Commentaire (note rapide)</label>
+            <input value={form.comment} onChange={(e) => setForm({ ...form, comment: e.target.value })} className="form-input w-full" />
+          </div>
+
+          {error && <p className="col-span-2 text-sm text-empire-rougeVif">{error}</p>}
+
+          <div className="col-span-2 flex gap-2">
+            <button type="submit" disabled={saving} className="btn-primary">
+              {saving ? 'Enregistrement...' : editingId ? 'Enregistrer' : 'Ajouter'}
+            </button>
+            <button type="button" onClick={() => setShowForm(false)} className="btn-secondary">
+              Annuler
+            </button>
+          </div>
+        </form>
+      )}
+
+      <div className="card p-4">
+        {loading ? (
+          <p className="text-gray-500 text-sm tracking-widest">⟳ Chargement...</p>
+        ) : items.length === 0 ? (
+          <p className="text-sm text-gray-500 italic">Aucun propriétaire en attente.</p>
+        ) : (
+          <div>
+            {items.map((item) => (
+              <ExpandableRow
+                key={item.id}
+                label={
+                  <div>
+                    <span className="font-semibold text-gray-800">{item.fullName}</span>
+                    <span className="text-xs text-gray-500 ml-2">{item.phone}</span>
+                    {item.location && <span className="text-xs text-gray-500 ml-2">— {item.location}</span>}
+                    {item.comment && <div className="text-xs text-gray-500 italic">{item.comment}</div>}
+                    <div className="text-xs text-gray-600 mt-0.5">saisi par {fmtEntered(item.enteredBy)}</div>
+                  </div>
+                }
+                comments={
+                  <CommentThread
+                    getUrl={`/api/pending-owners/${item.id}/comments`}
+                    onPost={(text) =>
+                      fetch(`/api/pending-owners/${item.id}/comments`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ text }),
+                      })
+                    }
+                  />
+                }
+              >
+                <button onClick={() => openEditForm(item)} className="btn-secondary text-xs py-1 px-2">Modifier</button>
+                <button onClick={() => handleDelete(item.id)} className="btn-danger text-xs py-1 px-2">Supprimer</button>
+              </ExpandableRow>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

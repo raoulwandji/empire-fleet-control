@@ -65,6 +65,8 @@ model User {
   accountingEntered    AccountingEntry[]     @relation("AccountingEnteredBy")
   pendingDriverComments PendingDriverComment[] @relation("PendingDriverCommentAuthor")
   ownerComments        OwnerComment[]        @relation("OwnerCommentAuthor")
+  pendingOwnersEntered  PendingOwner[]        @relation("PendingOwnerEnteredBy")
+  pendingOwnerComments  PendingOwnerComment[] @relation("PendingOwnerCommentAuthor")
 
   @@map("users")
 }
@@ -102,6 +104,37 @@ model PendingDriverComment {
   author        User          @relation("PendingDriverCommentAuthor", fields: [authorId], references: [id])
 
   @@map("pending_driver_comments")
+}
+
+// Propriétaires prospects : pas encore intégrés à la table Owner (en cours de discussion/onboarding).
+model PendingOwner {
+  id          String   @id @default(cuid())
+  fullName    String
+  phone       String
+  location    String?
+  comment     String?
+  enteredById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  enteredBy User @relation("PendingOwnerEnteredBy", fields: [enteredById], references: [id])
+  comments  PendingOwnerComment[]
+
+  @@map("pending_owners")
+}
+
+// Fil de commentaires horodatés sur un propriétaire en attente.
+model PendingOwnerComment {
+  id             String   @id @default(cuid())
+  pendingOwnerId String
+  text           String
+  authorId       String
+  createdAt      DateTime @default(now())
+
+  pendingOwner PendingOwner @relation(fields: [pendingOwnerId], references: [id], onDelete: Cascade)
+  author       User         @relation("PendingOwnerCommentAuthor", fields: [authorId], references: [id])
+
+  @@map("pending_owner_comments")
 }
 
 model Owner {

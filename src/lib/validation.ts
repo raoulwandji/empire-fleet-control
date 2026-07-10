@@ -113,3 +113,17 @@ export const ownerCommentCreateSchema = z.object({
   ownerId: z.string(),
   text: z.string().min(1),
 });
+
+export const pendingOwnerCreateSchema = z.object({
+  fullName: z.string().min(2),
+  phone: z.string().min(6),
+  location: z.string().optional(),
+  comment: z.string().optional(),
+});
+
+export const pendingOwnerUpdateSchema = pendingOwnerCreateSchema.partial();
+
+export const pendingOwnerCommentCreateSchema = z.object({
+  pendingOwnerId: z.string(),
+  text: z.string().min(1),
+});
