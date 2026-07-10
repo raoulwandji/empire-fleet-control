@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import { formatFCFA } from '@/lib/business';
 import clsx from 'clsx';
@@ -14,8 +15,24 @@ type PendingDriver = {
   contractType: 'CONDITION_VENTE' | 'LOCATION';
   cautionPaid: string;
   comment: string | null;
-  enteredBy: { fullName: string };
+  enteredBy: { fullName: string; username?: string };
   createdAt: string;
+};
+
+type DriverLite = {
+  id: string;
+  code: string;
+  fullName: string;
+  phone: string;
+  contractType: 'CONDITION_VENTE' | 'LOCATION';
+  vehiclePlate: string;
+};
+
+type OwnerLite = {
+  id: string;
+  fullName: string;
+  phone: string;
+  location: string | null;
 };
 
 const EMPTY_FORM = {
@@ -28,7 +45,150 @@ const EMPTY_FORM = {
   comment: '',
 };
 
+const TABS = ['Prospects en attente', 'Chauffeurs', 'Propriétaires'] as const;
+
+// Affiche l'identifiant (@username) de l'utilisateur qui a saisi la donnée, en plus de son nom.
+function fmtEntered(u?: { fullName: string; username?: string } | null) {
+  if (!u) return '—';
+  return u.username ? `${u.fullName} (@${u.username})` : u.fullName;
+}
+
 export default function PendingDriversPage() {
+  const [tab, setTab] = useState<typeof TABS[number]>('Prospects en attente');
+
+  return (
+    <div>
+      <Navbar />
+      <div className="p-6 max-w-6xl mx-auto space-y-6">
+        <div>
+          <h1 className="font-display font-bold text-2xl text-transparent bg-clip-text bg-gradient-to-r from-hud-cyan to-empire-rouge tracking-widest">
+            EN ATTENTE
+          </h1>
+          <p className="text-xs text-gray-500 tracking-widest uppercase">
+            Prospects, chauffeurs et propriétaires — avec fil de commentaires
+          </p>
+        </div>
+
+        <div className="flex gap-1 border-b border-hud-line overflow-x-auto">
+          {TABS.map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={clsx(
+                'px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition-all duration-150',
+                tab === t ? 'border-hud-cyan text-hud-cyan' : 'border-transparent text-gray-500 hover:text-gray-300'
+              )}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'Prospects en attente' && <ProspectsSection />}
+        {tab === 'Chauffeurs' && <DriversSection />}
+        {tab === 'Propriétaires' && <OwnersSection />}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Fil de commentaires réutilisable — pour chacune des 3 entités
+───────────────────────────────────────────────────────────── */
+function CommentThread({ getUrl, onPost }: { getUrl: string; onPost: (text: string) => Promise<Response> }) {
+  const [comments, setComments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [text, setText] = useState('');
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(getUrl);
+      const d = await res.json();
+      setComments(Array.isArray(d) ? d : []);
+    } catch {
+      setComments([]);
+    }
+    setLoading(false);
+  }, [getUrl]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!text.trim()) return;
+    setSaving(true);
+    setError('');
+    const res = await onPost(text.trim());
+    setSaving(false);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      setError(d.error ?? 'Erreur.');
+      return;
+    }
+    setText('');
+    load();
+  }
+
+  return (
+    <div className="bg-hud-panel2 rounded-lg p-3 space-y-2 mt-2 border border-hud-line">
+      <form onSubmit={submit} className="flex gap-2">
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Ajouter un commentaire..."
+          className="form-input flex-1 text-sm"
+        />
+        <button disabled={saving} className="btn-primary text-xs px-3 shrink-0">
+          {saving ? '...' : 'Envoyer'}
+        </button>
+      </form>
+      {error && <p className="text-xs text-empire-rougeVif">{error}</p>}
+      {loading ? (
+        <p className="text-xs text-gray-500 tracking-widest">⟳ Chargement...</p>
+      ) : comments.length === 0 ? (
+        <p className="text-xs text-gray-500 italic">Aucun commentaire.</p>
+      ) : (
+        <ul className="space-y-1.5 max-h-56 overflow-y-auto">
+          {comments.map((c) => (
+            <li key={c.id} className="text-xs border-b border-hud-line pb-1.5 last:border-0">
+              <span className="text-hud-cyan font-semibold">{fmtEntered(c.author)}</span>
+              <span className="text-gray-600 ml-2">
+                {new Date(c.createdAt ?? c.date).toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+              </span>
+              <p className="text-gray-700 font-medium mt-0.5">{c.text}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function ExpandableRow({ label, children, comments }: { label: React.ReactNode; children?: React.ReactNode; comments: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border-t border-hud-line first:border-t-0 py-3">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex-1 min-w-[200px]">{label}</div>
+        <div className="flex items-center gap-2 shrink-0">
+          {children}
+          <button onClick={() => setOpen((v) => !v)} className="btn-secondary text-xs py-1 px-2">
+            {open ? 'Masquer commentaires' : 'Commentaires'}
+          </button>
+        </div>
+      </div>
+      {open && comments}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Section 1 : Prospects en attente (gestion complète existante)
+───────────────────────────────────────────────────────────── */
+function ProspectsSection() {
   const [items, setItems] = useState<PendingDriver[]>([]);
   const [loading, setLoading] = useState(true);
   const [contractFilter, setContractFilter] = useState('');
@@ -46,7 +206,8 @@ export default function PendingDriversPage() {
     if (contractFilter) params.set('contractType', contractFilter);
     if (q) params.set('q', q);
     const res = await fetch(`/api/pending-drivers?${params.toString()}`);
-    setItems(await res.json());
+    const d = await res.json();
+    setItems(Array.isArray(d) ? d : []);
     setLoading(false);
   }, [contractFilter, q]);
 
@@ -124,136 +285,113 @@ export default function PendingDriversPage() {
   const locationItems = items.filter((i) => i.contractType === 'LOCATION');
 
   return (
-    <div>
-      <Navbar />
-      <div className="p-6 max-w-6xl mx-auto space-y-6">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div>
-            <h1 className="text-xl font-bold">Chauffeurs en attente de véhicule</h1>
-            <p className="text-sm text-gray-500">
-              Chauffeurs ayant déjà versé une caution/avance, sans véhicule encore affecté.
-            </p>
-          </div>
-          <button
-            onClick={openCreateForm}
-            className="bg-empire-rouge text-white px-4 py-2 rounded text-sm hover:bg-empire-rougeVif"
-          >
-            + Ajouter un chauffeur en attente
-          </button>
-        </div>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <p className="text-sm text-gray-600">
+          Prospects ayant déjà versé une caution/avance, sans véhicule encore affecté.
+        </p>
+        <button onClick={openCreateForm} className="btn-primary text-sm">
+          + Ajouter un prospect
+        </button>
+      </div>
 
-        <div className="bg-white rounded shadow p-4 flex flex-wrap gap-3 items-end">
+      <div className="card p-4 flex flex-wrap gap-3 items-end">
+        <div>
+          <label className="hud-label">Recherche</label>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nom, téléphone..." className="form-input w-56" />
+        </div>
+        <div>
+          <label className="hud-label">Type de contrat</label>
+          <select value={contractFilter} onChange={(e) => setContractFilter(e.target.value)} className="form-select w-44">
+            <option value="">Tous</option>
+            <option value="CONDITION_VENTE">Condition-Vente</option>
+            <option value="LOCATION">Location</option>
+          </select>
+        </div>
+        <button onClick={fetchData} className="btn-secondary text-sm">Filtrer</button>
+      </div>
+
+      {showForm && (
+        <form onSubmit={handleSubmit} className="card p-4 grid grid-cols-2 gap-3">
+          <h2 className="col-span-2 hud-title">
+            {editingId ? 'Modifier' : 'Ajouter'} un prospect en attente de véhicule
+          </h2>
           <div>
-            <label className="block text-xs text-gray-500">Recherche</label>
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nom, téléphone..." className="border rounded px-2 py-1 text-sm w-56" />
+            <label className="hud-label">Nom complet</label>
+            <input value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} required className="form-input w-full" />
           </div>
           <div>
-            <label className="block text-xs text-gray-500">Type de contrat</label>
-            <select value={contractFilter} onChange={(e) => setContractFilter(e.target.value)} className="border rounded px-2 py-1 text-sm">
-              <option value="">Tous</option>
+            <label className="hud-label">Téléphone</label>
+            <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} required className="form-input w-full" />
+          </div>
+          <div>
+            <label className="hud-label">Localisation</label>
+            <input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} className="form-input w-full" />
+          </div>
+          <div>
+            <label className="hud-label">N° de permis</label>
+            <input value={form.licenseNumber} onChange={(e) => setForm({ ...form, licenseNumber: e.target.value })} className="form-input w-full" />
+          </div>
+          <div>
+            <label className="hud-label">Type de contrat souhaité</label>
+            <select
+              value={form.contractType}
+              onChange={(e) => setForm({ ...form, contractType: e.target.value as 'CONDITION_VENTE' | 'LOCATION' })}
+              className="form-select w-full"
+            >
               <option value="CONDITION_VENTE">Condition-Vente</option>
               <option value="LOCATION">Location</option>
             </select>
           </div>
-          <button onClick={fetchData} className="bg-empire-noir text-white px-3 py-1.5 rounded text-sm">
-            Filtrer
-          </button>
-        </div>
-
-        {showForm && (
-          <form onSubmit={handleSubmit} className="bg-white rounded shadow p-4 grid grid-cols-2 gap-3">
-            <h2 className="col-span-2 font-semibold text-sm">
-              {editingId ? 'Modifier' : 'Ajouter'} un chauffeur en attente de véhicule
-            </h2>
-            <div>
-              <label className="block text-xs text-gray-500 mb-0.5">Nom complet</label>
-              <input value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} required className="border rounded px-2 py-1.5 text-sm w-full" />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-0.5">Téléphone</label>
-              <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} required className="border rounded px-2 py-1.5 text-sm w-full" />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-0.5">Localisation</label>
-              <input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} className="border rounded px-2 py-1.5 text-sm w-full" />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-0.5">N° de permis</label>
-              <input value={form.licenseNumber} onChange={(e) => setForm({ ...form, licenseNumber: e.target.value })} className="border rounded px-2 py-1.5 text-sm w-full" />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-0.5">Type de contrat souhaité</label>
-              <select
-                value={form.contractType}
-                onChange={(e) => setForm({ ...form, contractType: e.target.value as 'CONDITION_VENTE' | 'LOCATION' })}
-                className="border rounded px-2 py-1.5 text-sm w-full"
-              >
-                <option value="CONDITION_VENTE">Condition-Vente</option>
-                <option value="LOCATION">Location</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-0.5">Caution déjà versée (FCFA)</label>
-              <input
-                type="number"
-                value={form.cautionPaid}
-                onChange={(e) => setForm({ ...form, cautionPaid: e.target.value })}
-                required
-                className="border rounded px-2 py-1.5 text-sm w-full"
-              />
-            </div>
-            <div className="col-span-2">
-              <label className="block text-xs text-gray-500 mb-0.5">Commentaire</label>
-              <input value={form.comment} onChange={(e) => setForm({ ...form, comment: e.target.value })} className="border rounded px-2 py-1.5 text-sm w-full" />
-            </div>
-
-            {error && <p className="col-span-2 text-sm text-red-600">{error}</p>}
-
-            <div className="col-span-2 flex gap-2">
-              <button type="submit" disabled={saving} className="bg-empire-rouge text-white px-4 py-1.5 rounded text-sm disabled:opacity-50">
-                {saving ? 'Enregistrement...' : editingId ? 'Enregistrer' : 'Ajouter'}
-              </button>
-              <button type="button" onClick={() => setShowForm(false)} className="border px-4 py-1.5 rounded text-sm hover:bg-gray-50">
-                Annuler
-              </button>
-            </div>
-          </form>
-        )}
-
-        {loading ? (
-          <p className="text-gray-400">Chargement...</p>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <PendingTable
-              title="Condition-Vente"
-              color="blue"
-              items={conditionVenteItems}
-              onEdit={openEditForm}
-              onDelete={handleDelete}
-            />
-            <PendingTable
-              title="Location"
-              color="green"
-              items={locationItems}
-              onEdit={openEditForm}
-              onDelete={handleDelete}
+          <div>
+            <label className="hud-label">Caution déjà versée (FCFA)</label>
+            <input
+              type="number"
+              value={form.cautionPaid}
+              onChange={(e) => setForm({ ...form, cautionPaid: e.target.value })}
+              required
+              className="form-input w-full"
             />
           </div>
-        )}
-      </div>
+          <div className="col-span-2">
+            <label className="hud-label">Commentaire (note rapide)</label>
+            <input value={form.comment} onChange={(e) => setForm({ ...form, comment: e.target.value })} className="form-input w-full" />
+          </div>
+
+          {error && <p className="col-span-2 text-sm text-empire-rougeVif">{error}</p>}
+
+          <div className="col-span-2 flex gap-2">
+            <button type="submit" disabled={saving} className="btn-primary">
+              {saving ? 'Enregistrement...' : editingId ? 'Enregistrer' : 'Ajouter'}
+            </button>
+            <button type="button" onClick={() => setShowForm(false)} className="btn-secondary">
+              Annuler
+            </button>
+          </div>
+        </form>
+      )}
+
+      {loading ? (
+        <p className="text-gray-500 text-sm tracking-widest">⟳ Chargement...</p>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <ProspectTable title="Condition-Vente" badgeClass="badge-cv" items={conditionVenteItems} onEdit={openEditForm} onDelete={handleDelete} />
+          <ProspectTable title="Location" badgeClass="badge-loc" items={locationItems} onEdit={openEditForm} onDelete={handleDelete} />
+        </div>
+      )}
     </div>
   );
 }
 
-function PendingTable({
+function ProspectTable({
   title,
-  color,
+  badgeClass,
   items,
   onEdit,
   onDelete,
 }: {
   title: string;
-  color: 'blue' | 'green';
+  badgeClass: string;
   items: PendingDriver[];
   onEdit: (item: PendingDriver) => void;
   onDelete: (id: string) => void;
@@ -261,50 +399,196 @@ function PendingTable({
   const total = items.reduce((sum, i) => sum + Number(i.cautionPaid), 0);
 
   return (
-    <div className="bg-white rounded shadow p-4">
+    <div className="card p-4">
       <div className="flex items-center justify-between mb-3">
-        <h2 className={clsx('font-semibold', color === 'blue' ? 'text-blue-700' : 'text-green-700')}>
-          {title} <span className="text-gray-400 text-sm font-normal">({items.length})</span>
+        <h2 className="hud-title flex items-center gap-2">
+          <span className={badgeClass}>{title}</span>
+          <span className="text-gray-500 text-xs font-normal normal-case tracking-normal">({items.length})</span>
         </h2>
-        <span className="text-sm text-gray-500">Total caution : {formatFCFA(total)}</span>
+        <span className="text-xs text-gray-600">Total caution : {formatFCFA(total)}</span>
       </div>
 
       {items.length === 0 ? (
-        <p className="text-sm text-gray-400">Aucun chauffeur en attente pour ce type de contrat.</p>
+        <p className="text-sm text-gray-500 italic">Aucun prospect pour ce type de contrat.</p>
       ) : (
-        <table className="w-full text-sm">
-          <thead className="bg-gray-100 text-left">
-            <tr>
-              <th className="p-2">Nom</th>
-              <th className="p-2">Téléphone</th>
-              <th className="p-2">Caution versée</th>
-              <th className="p-2">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item) => (
-              <tr key={item.id} className="border-t">
-                <td className="p-2">
-                  {item.fullName}
-                  {item.comment && <div className="text-xs text-gray-400">{item.comment}</div>}
-                </td>
-                <td className="p-2">{item.phone}</td>
-                <td className="p-2 font-medium">{formatFCFA(Number(item.cautionPaid))}</td>
-                <td className="p-2">
-                  <div className="flex gap-2">
-                    <button onClick={() => onEdit(item)} className="text-xs border rounded px-2 py-0.5 hover:bg-gray-50">
-                      Modifier
-                    </button>
-                    <button onClick={() => onDelete(item.id)} className="text-xs border border-red-300 text-red-600 rounded px-2 py-0.5 hover:bg-red-50">
-                      Supprimer
-                    </button>
+        <div>
+          {items.map((item) => (
+            <ExpandableRow
+              key={item.id}
+              label={
+                <div>
+                  <span className="font-semibold text-gray-800">{item.fullName}</span>
+                  <span className="text-xs text-gray-500 ml-2">{item.phone}</span>
+                  {item.comment && <div className="text-xs text-gray-500 italic">{item.comment}</div>}
+                  <div className="text-xs text-gray-600 mt-0.5">
+                    {formatFCFA(Number(item.cautionPaid))} · saisi par {fmtEntered(item.enteredBy)}
                   </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </div>
+              }
+              comments={
+                <CommentThread
+                  getUrl={`/api/pending-drivers/${item.id}/comments`}
+                  onPost={(text) =>
+                    fetch(`/api/pending-drivers/${item.id}/comments`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ text }),
+                    })
+                  }
+                />
+              }
+            >
+              <button onClick={() => onEdit(item)} className="btn-secondary text-xs py-1 px-2">Modifier</button>
+              <button onClick={() => onDelete(item.id)} className="btn-danger text-xs py-1 px-2">Supprimer</button>
+            </ExpandableRow>
+          ))}
+        </div>
       )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Section 2 : Chauffeurs (déjà en flotte) — fil de commentaires
+───────────────────────────────────────────────────────────── */
+function DriversSection() {
+  const [items, setItems] = useState<DriverLite[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [q, setQ] = useState('');
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    const params = new URLSearchParams();
+    if (q) params.set('q', q);
+    const res = await fetch(`/api/drivers?${params.toString()}`);
+    const d = await res.json();
+    setItems(Array.isArray(d) ? d : []);
+    setLoading(false);
+  }, [q]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-gray-600">
+        Chauffeurs déjà en flotte — consultez ou ajoutez un commentaire sans quitter cette page.
+      </p>
+      <div className="card p-4 flex flex-wrap gap-3 items-end">
+        <div>
+          <label className="hud-label">Recherche</label>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nom, téléphone, plaque, code..." className="form-input w-64" />
+        </div>
+        <button onClick={fetchData} className="btn-secondary text-sm">Filtrer</button>
+      </div>
+
+      <div className="card p-4">
+        {loading ? (
+          <p className="text-gray-500 text-sm tracking-widest">⟳ Chargement...</p>
+        ) : items.length === 0 ? (
+          <p className="text-sm text-gray-500 italic">Aucun chauffeur trouvé.</p>
+        ) : (
+          <div>
+            {items.map((d) => (
+              <ExpandableRow
+                key={d.id}
+                label={
+                  <div>
+                    <Link href={`/drivers/${d.id}`} className="neon-link font-semibold">{d.fullName}</Link>
+                    <span className="font-mono text-xs text-hud-cyan ml-2">{d.code}</span>
+                    <div className="text-xs text-gray-500">
+                      {d.phone} · {d.vehiclePlate} ·{' '}
+                      <span className={d.contractType === 'CONDITION_VENTE' ? 'badge-cv' : 'badge-loc'}>
+                        {d.contractType === 'CONDITION_VENTE' ? 'CV' : 'Location'}
+                      </span>
+                    </div>
+                  </div>
+                }
+                comments={
+                  <CommentThread
+                    getUrl={`/api/comments?driverId=${d.id}`}
+                    onPost={(text) =>
+                      fetch('/api/comments', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ driverId: d.id, text }),
+                      })
+                    }
+                  />
+                }
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Section 3 : Propriétaires — fil de commentaires
+───────────────────────────────────────────────────────────── */
+function OwnersSection() {
+  const [items, setItems] = useState<OwnerLite[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [q, setQ] = useState('');
+
+  useEffect(() => {
+    setLoading(true);
+    fetch('/api/owners')
+      .then((r) => r.json())
+      .then((d) => setItems(Array.isArray(d) ? d : []))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = q
+    ? items.filter((o) => o.fullName.toLowerCase().includes(q.toLowerCase()) || o.phone.includes(q))
+    : items;
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-gray-600">
+        Propriétaires de véhicules — consultez ou ajoutez un commentaire sans quitter cette page.
+      </p>
+      <div className="card p-4 flex flex-wrap gap-3 items-end">
+        <div>
+          <label className="hud-label">Recherche</label>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nom, téléphone..." className="form-input w-64" />
+        </div>
+      </div>
+
+      <div className="card p-4">
+        {loading ? (
+          <p className="text-gray-500 text-sm tracking-widest">⟳ Chargement...</p>
+        ) : filtered.length === 0 ? (
+          <p className="text-sm text-gray-500 italic">Aucun propriétaire trouvé.</p>
+        ) : (
+          <div>
+            {filtered.map((o) => (
+              <ExpandableRow
+                key={o.id}
+                label={
+                  <div>
+                    <Link href={`/owners/${o.id}`} className="neon-link font-semibold">{o.fullName}</Link>
+                    <div className="text-xs text-gray-500">{o.phone}{o.location ? ` — ${o.location}` : ''}</div>
+                  </div>
+                }
+                comments={
+                  <CommentThread
+                    getUrl={`/api/owners/${o.id}/comments`}
+                    onPost={(text) =>
+                      fetch(`/api/owners/${o.id}/comments`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ text }),
+                      })
+                    }
+                  />
+                }
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

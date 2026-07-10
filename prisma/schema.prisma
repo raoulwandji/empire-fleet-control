@@ -63,6 +63,8 @@ model User {
   ownerCommissions     OwnerCommission[]     @relation("OwnerCommissionEnteredBy")
   ownerPrefinancement  OwnerPrefinancement[] @relation("OwnerPrefinancementEnteredBy")
   accountingEntered    AccountingEntry[]     @relation("AccountingEnteredBy")
+  pendingDriverComments PendingDriverComment[] @relation("PendingDriverCommentAuthor")
+  ownerComments        OwnerComment[]        @relation("OwnerCommentAuthor")
 
   @@map("users")
 }
@@ -83,8 +85,23 @@ model PendingDriver {
   updatedAt    DateTime     @updatedAt
 
   enteredBy User @relation("PendingDriverEnteredBy", fields: [enteredById], references: [id])
+  comments  PendingDriverComment[]
 
   @@map("pending_drivers")
+}
+
+// Fil de commentaires horodatés sur un prospect en attente (indépendant du champ "comment" ponctuel).
+model PendingDriverComment {
+  id              String   @id @default(cuid())
+  pendingDriverId String
+  text            String
+  authorId        String
+  createdAt       DateTime @default(now())
+
+  pendingDriver PendingDriver @relation(fields: [pendingDriverId], references: [id], onDelete: Cascade)
+  author        User          @relation("PendingDriverCommentAuthor", fields: [authorId], references: [id])
+
+  @@map("pending_driver_comments")
 }
 
 model Owner {
@@ -98,8 +115,23 @@ model Owner {
   drivers         Driver[]
   commissions     OwnerCommission[]
   prefinancements OwnerPrefinancement[]
+  comments        OwnerComment[]
 
   @@map("owners")
+}
+
+// Fil de commentaires horodatés sur un propriétaire.
+model OwnerComment {
+  id        String   @id @default(cuid())
+  ownerId   String
+  text      String
+  authorId  String
+  createdAt DateTime @default(now())
+
+  owner  Owner @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  author User  @relation("OwnerCommentAuthor", fields: [authorId], references: [id])
+
+  @@map("owner_comments")
 }
 
 model OwnerCommission {

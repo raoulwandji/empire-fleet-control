@@ -27,7 +27,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       },
       include: {
         driver: { select: { fullName: true, vehiclePlate: true, code: true } },
-        enteredBy: { select: { fullName: true } },
+        enteredBy: { select: { fullName: true, username: true } },
       },
     });
 

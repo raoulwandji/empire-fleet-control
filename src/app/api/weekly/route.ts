@@ -17,7 +17,10 @@ export async function GET(req: NextRequest) {
         ...(driverId ? { driverId } : {}),
         ...(weekStartDate ? { weekStartDate: getWeekStart(new Date(weekStartDate)) } : {}),
       },
-      include: { driver: { select: { fullName: true, code: true, contractType: true } } },
+      include: {
+        driver: { select: { fullName: true, code: true, contractType: true } },
+        enteredBy: { select: { fullName: true, username: true } },
+      },
       orderBy: { weekStartDate: 'desc' },
     });
 

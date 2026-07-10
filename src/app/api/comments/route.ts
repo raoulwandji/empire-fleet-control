@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
 
     const comments = await prisma.comment.findMany({
       where: driverId ? { driverId } : undefined,
-      include: { author: { select: { fullName: true } } },
+      include: { author: { select: { fullName: true, username: true } } },
       orderBy: { date: 'desc' },
     });
 

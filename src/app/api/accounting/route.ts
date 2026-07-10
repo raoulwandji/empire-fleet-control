@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
     const entries = await prisma.accountingEntry.findMany({
       where,
       orderBy: { date: 'desc' },
-      include: { enteredBy: { select: { fullName: true } } },
+      include: { enteredBy: { select: { fullName: true, username: true } } },
       take: 500,
     });
 
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
         amount: Number(e.amount),
         paymentMode: e.paymentMode,
         note: e.note,
-        enteredBy: e.enteredBy.fullName,
+        enteredBy: `${e.enteredBy.fullName} (@${e.enteredBy.username})`,
       }))
     );
   } catch (err) {

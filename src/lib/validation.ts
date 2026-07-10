@@ -103,3 +103,13 @@ export const pendingDriverCreateSchema = z.object({
 });
 
 export const pendingDriverUpdateSchema = pendingDriverCreateSchema.partial();
+
+export const pendingDriverCommentCreateSchema = z.object({
+  pendingDriverId: z.string(),
+  text: z.string().min(1),
+});
+
+export const ownerCommentCreateSchema = z.object({
+  ownerId: z.string(),
+  text: z.string().min(1),
+});

@@ -5,12 +5,18 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import Navbar from '@/components/Navbar';
-import { formatFCFA, formatWeekRange } from '@/lib/business';
+import { formatFCFA, formatWeekRange, getWeekStart, getWeekEnd } from '@/lib/business';
 import clsx from 'clsx';
 
 type DriverDetail = any;
 
 const TABS = ['Profil', 'Versements/Loyers', 'Caution', 'Suivi hebdo', 'Commentaires'] as const;
+
+// Affiche l'identifiant (@username) de l'utilisateur qui a saisi la donnée, en plus de son nom.
+function fmtEntered(u?: { fullName: string; username?: string } | null) {
+  if (!u) return '—';
+  return u.username ? `${u.fullName} (@${u.username})` : u.fullName;
+}
 
 export default function DriverDetailPage() {
   const params = useParams<{ id: string }>();
@@ -284,6 +290,7 @@ function PaymentsTab({ driver, canWrite, onChange }: { driver: DriverDetail; can
   const [error, setError] = useState('');
   const [exportFrom, setExportFrom] = useState('');
   const [exportTo, setExportTo] = useState('');
+  const [weekFilter, setWeekFilter] = useState(''); // '' = toutes les semaines
   const label = driver.contractType === 'CONDITION_VENTE' ? 'Versement' : 'Loyer';
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -332,6 +339,17 @@ function PaymentsTab({ driver, canWrite, onChange }: { driver: DriverDetail; can
     onChange();
   }
 
+  // Filtre semaine : le total du tableau se recalcule sur la semaine sélectionnée.
+  const weekStart = weekFilter ? getWeekStart(new Date(weekFilter)) : null;
+  const weekEnd = weekStart ? getWeekEnd(weekStart) : null;
+  const visiblePayments = weekStart && weekEnd
+    ? driver.payments.filter((p: any) => {
+        const d = new Date(p.date);
+        return d >= weekStart && d <= weekEnd;
+      })
+    : driver.payments;
+  const visibleTotal = visiblePayments.reduce((s: number, p: any) => s + Number(p.amount), 0);
+
   return (
     <div className="space-y-4">
       {canWrite && (
@@ -375,13 +393,37 @@ function PaymentsTab({ driver, canWrite, onChange }: { driver: DriverDetail; can
         <a href={buildExportUrl('pdf')} className="btn-secondary text-xs py-1.5">PDF</a>
       </div>
 
+      {/* Filtre par semaine — total de {label.toLowerCase()}s recalculé */}
+      <div className="card p-3 flex flex-wrap gap-3 items-end">
+        <div>
+          <label className="hud-label">Filtrer par semaine</label>
+          <input type="date" value={weekFilter} onChange={(e) => setWeekFilter(e.target.value)} className="hud-input w-auto" />
+        </div>
+        {weekFilter && weekStart && (
+          <>
+            <div className="text-xs text-gray-500 pb-2">
+              Semaine du <span className="text-hud-cyan font-semibold">{formatWeekRange(weekStart)}</span>
+            </div>
+            <button onClick={() => setWeekFilter('')} className="btn-secondary text-xs py-1.5 px-3">
+              Toutes les semaines
+            </button>
+          </>
+        )}
+        <div className="ml-auto text-right">
+          <div className="stat-label">Total {label.toLowerCase()}s {weekFilter ? '(semaine)' : '(tout)'}</div>
+          <div className="font-display font-bold text-lg text-hud-green">{formatFCFA(visibleTotal)}</div>
+        </div>
+      </div>
+
       <div className="card overflow-x-auto">
         <table className="hud-table">
           <thead><tr><th>Date</th><th>Montant</th><th>Mode</th><th>Commentaire</th><th>Saisi par</th>{canWrite && <th>Action</th>}</tr></thead>
           <tbody>
-            {driver.payments.length === 0 ? (
-              <tr><td colSpan={6} className="text-center text-gray-600 py-6 italic">Aucun versement enregistré.</td></tr>
-            ) : driver.payments.map((p: any) => (
+            {visiblePayments.length === 0 ? (
+              <tr><td colSpan={6} className="text-center text-gray-600 py-6 italic">
+                {weekFilter ? 'Aucun versement pour cette semaine.' : 'Aucun versement enregistré.'}
+              </td></tr>
+            ) : visiblePayments.map((p: any) => (
               editingId === p.id ? (
                 <tr key={p.id} className="bg-hud-cyan/5">
                   <td><input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} className="form-input w-auto" /></td>
@@ -395,7 +437,7 @@ function PaymentsTab({ driver, canWrite, onChange }: { driver: DriverDetail; can
                     </select>
                   </td>
                   <td><input value={editComment} onChange={(e) => setEditComment(e.target.value)} className="form-input w-full" /></td>
-                  <td className="text-gray-600 text-xs">{p.enteredBy?.fullName ?? '—'}</td>
+                  <td className="text-gray-600 text-xs">{fmtEntered(p.enteredBy)}</td>
                   <td className="flex gap-1.5 flex-wrap">
                     <button onClick={() => saveEdit(p.id)} className="btn-primary text-xs py-1 px-2">Enregistrer</button>
                     <button onClick={() => setEditingId(null)} className="btn-secondary text-xs py-1 px-2">Annuler</button>
@@ -411,7 +453,7 @@ function PaymentsTab({ driver, canWrite, onChange }: { driver: DriverDetail; can
                   <td className="font-display text-hud-green font-bold">{formatFCFA(Number(p.amount))}</td>
                   <td className="text-gray-400 text-xs">{p.paymentMode}</td>
                   <td className="text-gray-400">{p.comment || '—'}</td>
-                  <td className="text-gray-600 text-xs">{p.enteredBy?.fullName ?? '—'}</td>
+                  <td className="text-gray-600 text-xs">{fmtEntered(p.enteredBy)}</td>
                   {canWrite && (
                     <td className="flex gap-1.5">
                       <button onClick={() => startEdit(p)} className="btn-secondary text-xs py-1 px-2">Modifier</button>
@@ -505,7 +547,7 @@ function CautionTab({ driver, canWrite, onChange, isCV }: { driver: DriverDetail
                 </td>
                 <td className="text-hud-cyan font-mono text-xs">{formatFCFA(Number(m.resultBalance))}</td>
                 <td className="text-gray-400">{m.reason || '—'}</td>
-                <td className="text-gray-600 text-xs">{m.enteredBy?.fullName ?? '—'}</td>
+                <td className="text-gray-600 text-xs">{fmtEntered(m.enteredBy)}</td>
               </tr>
             ))}
           </tbody>
@@ -732,7 +774,7 @@ function CommentsTab({ driver, canWrite, onChange }: { driver: DriverDetail; can
         ) : driver.comments.map((c: any) => (
           <div key={c.id} className="card p-4 text-sm">
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-hud-cyan text-xs font-semibold">{c.author.fullName}</span>
+              <span className="text-hud-cyan text-xs font-semibold">{fmtEntered(c.author)}</span>
               <span className="text-gray-600 text-xs">·</span>
               <span className="text-gray-500 text-xs">{new Date(c.date).toLocaleString('fr-FR')}</span>
             </div>

@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
 
     const movements = await prisma.cautionMovement.findMany({
       where: driverId ? { driverId } : undefined,
-      include: { enteredBy: { select: { fullName: true } }, driver: { select: { fullName: true, code: true } } },
+      include: { enteredBy: { select: { fullName: true, username: true } }, driver: { select: { fullName: true, code: true } } },
       orderBy: { date: 'desc' },
     });
 

@@ -16,10 +16,22 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       where: { id: params.id },
       include: {
         assignments: { include: { employee: { select: { id: true, fullName: true } } } },
-        payments: { orderBy: { date: 'desc' } },
-        cautionMovements: { orderBy: { date: 'desc' } },
-        weeklyTrackings: { orderBy: { weekStartDate: 'desc' } },
-        comments: { include: { author: { select: { fullName: true } } }, orderBy: { date: 'desc' } },
+        payments: {
+          include: { enteredBy: { select: { fullName: true, username: true } } },
+          orderBy: { date: 'desc' },
+        },
+        cautionMovements: {
+          include: { enteredBy: { select: { fullName: true, username: true } } },
+          orderBy: { date: 'desc' },
+        },
+        weeklyTrackings: {
+          include: { enteredBy: { select: { fullName: true, username: true } } },
+          orderBy: { weekStartDate: 'desc' },
+        },
+        comments: {
+          include: { author: { select: { fullName: true, username: true } } },
+          orderBy: { date: 'desc' },
+        },
       },
     });
 

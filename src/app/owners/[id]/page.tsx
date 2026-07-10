@@ -20,7 +20,7 @@ type Commission = {
   weekStart: string;
   amount: string;
   note: string | null;
-  enteredBy: { fullName: string };
+  enteredBy: { fullName: string; username?: string };
 };
 
 type Prefinancement = {
@@ -28,7 +28,7 @@ type Prefinancement = {
   weekStart: string;
   amount: string;
   note: string | null;
-  enteredBy: { fullName: string };
+  enteredBy: { fullName: string; username?: string };
   driver: { id: string; fullName: string; vehiclePlate: string; code: string } | null;
 };
 
@@ -57,6 +57,12 @@ function fmtDate(iso: string) {
 
 function fmtAmount(v: string | number) {
   return Number(v).toLocaleString('fr-FR', { minimumFractionDigits: 0 });
+}
+
+// Affiche l'identifiant (@username) de l'utilisateur qui a saisi la donnée, en plus de son nom.
+function fmtEntered(u?: { fullName: string; username?: string } | null) {
+  if (!u) return '—';
+  return u.username ? `${u.fullName} (@${u.username})` : u.fullName;
 }
 
 type DriverOption = { id: string; fullName: string; vehiclePlate: string; code: string };
@@ -445,7 +451,7 @@ function HistoryTable({ rows, colorClass, onDelete }: {
             <td className="font-mono text-xs">{fmtDate(r.weekStart)}</td>
             <td className={`text-right font-semibold ${colorClass}`}>{Number(r.amount).toLocaleString('fr-FR')} FCFA</td>
             <td className="text-xs text-gray-500">{r.note ?? '—'}</td>
-            <td className="text-xs text-gray-500">{r.enteredBy.fullName}</td>
+            <td className="text-xs text-gray-500">{fmtEntered(r.enteredBy)}</td>
             {onDelete && (
               <td>
                 <button onClick={() => onDelete(r.weekStart)} className="text-xs text-red-500 hover:text-empire-rougeVif transition-colors">Supprimer</button>
@@ -490,7 +496,7 @@ function PrefHistoryTable({ rows, onDelete }: {
               )}
             </div>
             <div className="flex items-center gap-3 shrink-0">
-              <span className="text-xs text-gray-600">par {r.enteredBy.fullName}</span>
+              <span className="text-xs text-gray-600">par {fmtEntered(r.enteredBy)}</span>
               {onDelete && (
                 <button onClick={() => onDelete(r.id)} className="text-xs text-red-500 hover:text-empire-rougeVif transition-colors">
                   Supprimer

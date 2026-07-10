@@ -36,13 +36,13 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         commissions: {
           orderBy: { weekStart: 'desc' },
           take: 12,
-          include: { enteredBy: { select: { fullName: true } } },
+          include: { enteredBy: { select: { fullName: true, username: true } } },
         },
         prefinancements: {
           orderBy: { weekStart: 'desc' },
           take: 24,
           include: {
-            enteredBy: { select: { fullName: true } },
+            enteredBy: { select: { fullName: true, username: true } },
             driver: { select: { id: true, fullName: true, vehiclePlate: true, code: true } },
           },
         },

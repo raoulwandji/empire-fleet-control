@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
 
     const pendingDrivers = await prisma.pendingDriver.findMany({
       where,
-      include: { enteredBy: { select: { fullName: true } } },
+      include: { enteredBy: { select: { fullName: true, username: true } } },
       orderBy: { createdAt: 'desc' },
     });
 

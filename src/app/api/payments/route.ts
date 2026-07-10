@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
 
     const payments = await prisma.payment.findMany({
       where: driverId ? { driverId } : undefined,
-      include: { enteredBy: { select: { fullName: true } }, driver: { select: { fullName: true, code: true } } },
+      include: { enteredBy: { select: { fullName: true, username: true } }, driver: { select: { fullName: true, code: true } } },
       orderBy: { date: 'desc' },
     });
 
