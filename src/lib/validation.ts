@@ -52,6 +52,14 @@ export const paymentCreateSchema = z.object({
   amount: z.number().positive(),
   paymentMode: z.enum(['ESPECES', 'MOBILE_MONEY', 'VIREMENT', 'AUTRE']).default('ESPECES'),
   comment: z.string().optional(),
+  // Mouvement de portefeuille optionnel, intégré au moment de la saisie du versement (CV uniquement) :
+  // DEPOT pour garder un surplus, RETRAIT pour couvrir une partie du versement avec le solde existant.
+  walletMovement: z
+    .object({
+      type: z.enum(['DEPOT', 'RETRAIT']),
+      amount: z.number().positive(),
+    })
+    .optional(),
 });
 
 export const cautionMovementCreateSchema = z.object({
@@ -65,6 +73,14 @@ export const cautionMovementCreateSchema = z.object({
     'RETRAIT',
   ]),
   amount: z.number(),
+  reason: z.string().optional(),
+});
+
+export const walletMovementCreateSchema = z.object({
+  driverId: z.string(),
+  date: z.string(),
+  type: z.enum(['DEPOT', 'RETRAIT']),
+  amount: z.number().positive(),
   reason: z.string().optional(),
 });
 

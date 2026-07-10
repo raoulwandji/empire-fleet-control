@@ -10,7 +10,7 @@ import clsx from 'clsx';
 
 type DriverDetail = any;
 
-const TABS = ['Profil', 'Versements/Loyers', 'Caution', 'Suivi hebdo', 'Commentaires'] as const;
+const TABS = ['Profil', 'Versements/Loyers', 'Caution', 'Portefeuille', 'Suivi hebdo', 'Commentaires'] as const;
 
 // Affiche l'identifiant (@username) de l'utilisateur qui a saisi la donnée, en plus de son nom.
 function fmtEntered(u?: { fullName: string; username?: string } | null) {
@@ -93,6 +93,7 @@ export default function DriverDetailPage() {
             <StatCard label="Montant fixé" value={formatFCFA(Number(driver.totalPriceFixed ?? 0))} />
             <StatCard label="Total versé" value={formatFCFA(driver.summary.totalPaid)} accent />
             <StatCard label="Avance / caution" value={formatFCFA(driver.summary.cautionAdvance ?? 0)} accent />
+            <StatCard label="Portefeuille" value={formatFCFA(driver.summary.walletBalance ?? 0)} accent />
             <StatCard label="Pénalités appliquées" value={formatFCFA(driver.summary.appliedPenalties)} />
             <StatCard label="Reste à payer" value={formatFCFA(driver.summary.resteAPayer)} highlight />
           </>
@@ -110,7 +111,7 @@ export default function DriverDetailPage() {
 
       {/* Onglets */}
       <div className="flex gap-1 mb-6 border-b border-hud-line overflow-x-auto">
-        {TABS.map((t) => (
+        {TABS.filter((t) => t !== 'Portefeuille' || isCV).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -129,6 +130,7 @@ export default function DriverDetailPage() {
       {tab === 'Profil' && <ProfileTab driver={driver} canWrite={canWrite} onChange={fetchDriver} />}
       {tab === 'Versements/Loyers' && <PaymentsTab driver={driver} canWrite={canWrite} onChange={fetchDriver} />}
       {tab === 'Caution' && <CautionTab driver={driver} canWrite={canWrite} onChange={fetchDriver} isCV={isCV} />}
+      {tab === 'Portefeuille' && isCV && <WalletTab driver={driver} canWrite={canWrite} onChange={fetchDriver} />}
       {tab === 'Suivi hebdo' && <WeeklyTab driver={driver} canWrite={canWrite} onChange={fetchDriver} />}
       {tab === 'Commentaires' && <CommentsTab driver={driver} canWrite={canWrite} onChange={fetchDriver} />}
     </Shell>
@@ -291,7 +293,12 @@ function PaymentsTab({ driver, canWrite, onChange }: { driver: DriverDetail; can
   const [exportFrom, setExportFrom] = useState('');
   const [exportTo, setExportTo] = useState('');
   const [weekFilter, setWeekFilter] = useState(''); // '' = toutes les semaines
-  const label = driver.contractType === 'CONDITION_VENTE' ? 'Versement' : 'Loyer';
+  const isCV = driver.contractType === 'CONDITION_VENTE';
+  const label = isCV ? 'Versement' : 'Loyer';
+
+  // Mouvement de portefeuille intégré à la saisie du versement (CV uniquement).
+  const [walletAction, setWalletAction] = useState<'' | 'DEPOT' | 'RETRAIT'>('');
+  const [walletAmount, setWalletAmount] = useState('');
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDate, setEditDate] = useState('');
@@ -309,10 +316,14 @@ function PaymentsTab({ driver, canWrite, onChange }: { driver: DriverDetail; can
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault(); setError('');
+    const payload: Record<string, unknown> = { driverId: driver.id, date, amount: Number(amount), paymentMode, comment: comment || undefined };
+    if (isCV && walletAction && walletAmount) {
+      payload.walletMovement = { type: walletAction, amount: Number(walletAmount) };
+    }
     const res = await fetch('/api/payments', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ driverId: driver.id, date, amount: Number(amount), paymentMode, comment: comment || undefined }) });
+      body: JSON.stringify(payload) });
     if (!res.ok) { setError((await res.json()).error ?? 'Erreur.'); return; }
-    setDate(''); setAmount(''); setComment(''); onChange();
+    setDate(''); setAmount(''); setComment(''); setWalletAction(''); setWalletAmount(''); onChange();
   }
 
   function startEdit(p: any) {
@@ -375,6 +386,37 @@ function PaymentsTab({ driver, canWrite, onChange }: { driver: DriverDetail; can
             <label className="hud-label">Commentaire</label>
             <input value={comment} onChange={(e) => setComment(e.target.value)} className="form-input w-full" placeholder="Commentaire optionnel..." />
           </div>
+
+          {isCV && (
+            <>
+              <div>
+                <label className="hud-label">Portefeuille</label>
+                <select
+                  value={walletAction}
+                  onChange={(e) => setWalletAction(e.target.value as '' | 'DEPOT' | 'RETRAIT')}
+                  className="form-select w-52"
+                >
+                  <option value="">Aucun mouvement</option>
+                  <option value="DEPOT">Garder le surplus (dépôt)</option>
+                  <option value="RETRAIT">Couvrir avec le solde (retrait)</option>
+                </select>
+              </div>
+              {walletAction && (
+                <div>
+                  <label className="hud-label">Montant portefeuille (FCFA)</label>
+                  <input
+                    type="number"
+                    value={walletAmount}
+                    onChange={(e) => setWalletAmount(e.target.value)}
+                    required
+                    placeholder="Ex: 5000"
+                    className="form-input w-36"
+                  />
+                </div>
+              )}
+            </>
+          )}
+
           <button type="submit" className="btn-primary">+ Ajouter {label.toLowerCase()}</button>
           {error && <p className="text-xs text-empire-rougeVif w-full">{error}</p>}
         </form>
@@ -550,6 +592,82 @@ function CautionTab({ driver, canWrite, onChange, isCV }: { driver: DriverDetail
                 <td className="text-gray-600 text-xs">{fmtEntered(m.enteredBy)}</td>
               </tr>
             ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+const WALLET_TYPES = [
+  { value: 'DEPOT', label: 'Dépôt (surplus)' },
+  { value: 'RETRAIT', label: 'Retrait' },
+];
+
+function WalletTab({ driver, canWrite, onChange }: { driver: DriverDetail; canWrite: boolean; onChange: () => void }) {
+  const [date, setDate] = useState('');
+  const [type, setType] = useState(WALLET_TYPES[0].value);
+  const [amount, setAmount] = useState('');
+  const [reason, setReason] = useState('');
+  const [error, setError] = useState('');
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault(); setError('');
+    const res = await fetch('/api/wallet', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ driverId: driver.id, date, type, amount: Number(amount), reason: reason || undefined }) });
+    if (!res.ok) { setError((await res.json()).error ?? 'Erreur.'); return; }
+    setDate(''); setAmount(''); setReason(''); onChange();
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="card p-3 border-l-4 border-hud-cyan text-xs text-gray-700 font-semibold">
+        Le portefeuille garde le <span className="text-hud-cyan">surplus ou l'avance</span> des versements du chauffeur.
+        Il est indépendant de l'avance/caution du véhicule et peut être déduit manuellement lors d'un futur versement.
+      </div>
+      {canWrite && (
+        <form onSubmit={handleSubmit} className="card p-4 flex flex-wrap gap-3 items-end">
+          <div>
+            <label className="hud-label">Date</label>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required className="form-input w-auto" />
+          </div>
+          <div>
+            <label className="hud-label">Type de mouvement</label>
+            <select value={type} onChange={(e) => setType(e.target.value)} className="form-select w-44">
+              {WALLET_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="hud-label">Montant (FCFA)</label>
+            <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} required placeholder="Ex: 5000" className="form-input w-36" />
+          </div>
+          <div className="flex-1 min-w-[160px]">
+            <label className="hud-label">Motif</label>
+            <input value={reason} onChange={(e) => setReason(e.target.value)} className="form-input w-full" placeholder="Motif du mouvement..." />
+          </div>
+          <button type="submit" className="btn-primary">Enregistrer</button>
+          {error && <p className="text-xs text-empire-rougeVif w-full">{error}</p>}
+        </form>
+      )}
+
+      <div className="card overflow-x-auto">
+        <table className="hud-table">
+          <thead><tr><th>Date</th><th>Type</th><th>Montant</th><th>Solde résultant</th><th>Motif</th><th>Saisi par</th></tr></thead>
+          <tbody>
+            {driver.walletMovements?.length ? driver.walletMovements.map((m: any) => (
+              <tr key={m.id}>
+                <td>{new Date(m.date).toLocaleDateString('fr-FR')}</td>
+                <td className="text-xs text-gray-400">{m.type === 'DEPOT' ? 'Dépôt' : 'Retrait'}</td>
+                <td className={clsx('font-display font-bold', Number(m.amount) < 0 ? 'text-empire-rougeVif' : 'text-hud-green')}>
+                  {Number(m.amount) > 0 ? '+' : ''}{formatFCFA(Number(m.amount))}
+                </td>
+                <td className="text-hud-cyan font-mono text-xs">{formatFCFA(Number(m.resultBalance))}</td>
+                <td className="text-gray-400">{m.reason || '—'}</td>
+                <td className="text-gray-600 text-xs">{fmtEntered(m.enteredBy)}</td>
+              </tr>
+            )) : (
+              <tr><td colSpan={6} className="text-center text-gray-600 py-6 italic">Aucun mouvement de portefeuille.</td></tr>
+            )}
           </tbody>
         </table>
       </div>

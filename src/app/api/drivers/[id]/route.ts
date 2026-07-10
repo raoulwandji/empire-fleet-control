@@ -24,6 +24,10 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
           include: { enteredBy: { select: { fullName: true, username: true } } },
           orderBy: { date: 'desc' },
         },
+        walletMovements: {
+          include: { enteredBy: { select: { fullName: true, username: true } } },
+          orderBy: { date: 'desc' },
+        },
         weeklyTrackings: {
           include: { enteredBy: { select: { fullName: true, username: true } } },
           orderBy: { weekStartDate: 'desc' },
@@ -51,6 +55,10 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     // Solde caution : calculé pour les deux types de contrat.
     const cautionBalance = driver.cautionMovements.reduce((sum, m) => sum + Number(m.amount), 0);
 
+    // Solde portefeuille (CV uniquement) : réserve de trésorerie courante, indépendante
+    // de l'avance/caution — n'affecte jamais le reste à verser.
+    const walletBalance = driver.walletMovements.reduce((sum, m) => sum + Number(m.amount), 0);
+
     // En Condition-Vente, la caution est une avance de remboursement :
     // elle s'ajoute au total versé et se déduit du reste à verser.
     // Les pénalités/sanctions ne sont plus soustraites automatiquement (déduction gérée en interne) :
@@ -73,6 +81,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
         totalComputedPenalties,
         resteAPayer,
         cautionBalance,
+        walletBalance,
       },
     });
   } catch (err) {
