@@ -80,6 +80,46 @@ export async function requireCapability(userId: string, role: Role, cap: Capabil
   }
 }
 
+/**
+ * Vérifie que l'utilisateur gère la structure (business unit) visée.
+ * ADMIN passe toujours, sans affectation nécessaire.
+ */
+export async function requireStructureAccess(userId: string, role: Role, businessUnit: string) {
+  if (role === 'ADMIN') return;
+  const assignment = await prisma.structureAssignment.findUnique({
+    where: { userId_businessUnit: { userId, businessUnit: businessUnit as any } },
+  });
+  if (!assignment) {
+    throw new AccessError("Vous n'êtes pas affecté à cette structure.", 403);
+  }
+}
+
+const FIVE_HOURS_MS = 5 * 60 * 60 * 1000;
+
+/**
+ * Fenêtre de modification/suppression pour les données saisies par un gestionnaire
+ * sur une structure (Empire Group) : 5 heures après la création. Passé ce délai,
+ * seul l'ADMIN peut encore modifier ou supprimer. L'ADMIN n'a jamais de délai.
+ * Si businessUnit est null (écriture générale, non liée à une structure), ne
+ * s'applique pas ici — la capacité 'accounting_delete' gère ce cas.
+ */
+export async function requireStructureWriteWindow(
+  userId: string,
+  role: Role,
+  businessUnit: string | null,
+  createdAt: Date
+) {
+  if (role === 'ADMIN') return;
+  if (!businessUnit) return;
+  await requireStructureAccess(userId, role, businessUnit);
+  if (Date.now() - createdAt.getTime() > FIVE_HOURS_MS) {
+    throw new AccessError(
+      'Le délai de modification de 5 heures est dépassé pour cette structure. Contactez un administrateur.',
+      403
+    );
+  }
+}
+
 export function handleAccessError(err: unknown) {
   if (err instanceof AccessError) {
     return NextResponse.json({ error: err.message }, { status: err.status });

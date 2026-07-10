@@ -156,3 +156,60 @@ export const pendingOwnerCommentCreateSchema = z.object({
   pendingOwnerId: z.string(),
   text: z.string().min(1),
 });
+
+const businessUnitEnum = z.enum([
+  'EMPIRE_ASSURANCE',
+  'AUTO_ECOLE_EMPIRE',
+  'EMPIRE_LANGUAGE_ACADEMY',
+  'EMPIRE_TRAVEL',
+  'EMPIRE_DRIVE',
+  'EMPIRE_SECURE',
+]);
+
+export const productCreateSchema = z.object({
+  businessUnit: businessUnitEnum,
+  name: z.string().min(1),
+  unitPrice: z.number().nonnegative(),
+  quantityInStock: z.number().int().nonnegative().default(0),
+});
+
+export const productUpdateSchema = z.object({
+  name: z.string().min(1).optional(),
+  unitPrice: z.number().nonnegative().optional(),
+  active: z.boolean().optional(),
+});
+
+export const stockMovementCreateSchema = z
+  .object({
+    productId: z.string(),
+    type: z.enum(['APPRO', 'VENTE', 'AJUSTEMENT']),
+    // Pour APPRO/VENTE : quantité positive. Pour AJUSTEMENT : peut être négative (correction à la baisse).
+    quantity: z.number().int(),
+    unitPrice: z.number().nonnegative().optional(),
+    date: z.string(),
+    note: z.string().optional(),
+    // Pour un APPRO : générer aussi une sortie comptable correspondant au coût d'achat.
+    recordCost: z.boolean().optional().default(false),
+  })
+  .superRefine((data, ctx) => {
+    if (data.type !== 'AJUSTEMENT' && data.quantity <= 0) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['quantity'], message: 'La quantité doit être positive.' });
+    }
+    if (data.type === 'AJUSTEMENT' && data.quantity === 0) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['quantity'], message: "La quantité d'ajustement ne peut pas être nulle." });
+    }
+  });
+
+export const structureServiceEntrySchema = z.object({
+  businessUnit: businessUnitEnum,
+  serviceName: z.string().min(1),
+  amount: z.number().positive(),
+  date: z.string(),
+  note: z.string().optional(),
+  paymentMode: z.enum(['ESPECES', 'MOBILE_MONEY', 'VIREMENT', 'AUTRE', 'PORTEFEUILLE']).optional().default('ESPECES'),
+});
+
+export const structureAssignmentCreateSchema = z.object({
+  userId: z.string(),
+  businessUnit: businessUnitEnum,
+});

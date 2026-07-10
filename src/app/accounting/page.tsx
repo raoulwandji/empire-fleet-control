@@ -5,6 +5,8 @@ import { useSession } from 'next-auth/react';
 import dynamic from 'next/dynamic';
 import Navbar from '@/components/Navbar';
 import { formatFCFA } from '@/lib/business';
+import { BUSINESS_UNITS } from '@/lib/businessUnits';
+import StructurePanel from '@/components/StructurePanel';
 import type { AccountingSummary } from '@/components/AccountingCharts';
 
 const AccountingCharts = dynamic(() => import('@/components/AccountingCharts'), {
@@ -38,9 +40,12 @@ const MODE_LABELS: Record<string, string> = {
 
 const todayISO = new Date().toISOString().slice(0, 10);
 
+const TABS = ['Vue générale', ...BUSINESS_UNITS.map((u) => u.label)] as const;
+
 export default function AccountingPage() {
   const { data: session } = useSession();
   const canDelete = session?.user.role === 'ADMIN' || session?.user.role === 'MANAGER';
+  const [tab, setTab] = useState<string>('Vue générale');
 
   const [entries, setEntries] = useState<Entry[]>([]);
   const [summary, setSummary] = useState<AccountingSummary | null>(null);
@@ -116,6 +121,28 @@ export default function AccountingPage() {
         </div>
         <div className="h-px bg-gradient-to-r from-transparent via-hud-cyan/30 to-transparent" />
 
+        {/* Onglets Structure — Vue générale + les 6 structures du groupe Empire */}
+        <div className="flex gap-1 border-b border-hud-line overflow-x-auto">
+          {TABS.map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition-all duration-150 ${
+                tab === t ? 'border-hud-cyan text-hud-cyan' : 'border-transparent text-gray-500 hover:text-gray-300'
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+
+        {tab !== 'Vue générale' ? (
+          <StructurePanel
+            businessUnit={BUSINESS_UNITS.find((u) => u.label === tab)!.key}
+            canDelete={canDelete}
+          />
+        ) : (
+        <>
         {/* KPI */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <KpiCard label="Total entrées" value={summary?.totals.entrees ?? 0} color="#2f7d4f" sign="+" />
@@ -272,6 +299,8 @@ export default function AccountingPage() {
             </table>
           </div>
         </div>
+        </>
+        )}
       </div>
     </div>
   );

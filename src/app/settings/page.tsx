@@ -6,6 +6,7 @@ import Navbar from '@/components/Navbar';
 import AvatarUploader from '@/components/AvatarUploader';
 import { CAPABILITIES, resolveCapabilities, type CapabilityKey } from '@/lib/capabilities';
 import { formatFCFA } from '@/lib/business';
+import { BUSINESS_UNITS } from '@/lib/businessUnits';
 
 type User = {
   id: string;
@@ -236,6 +237,9 @@ export default function SettingsPage() {
         {/* Avances / cautions des chauffeurs Condition-Vente existants */}
         <CvAdvancesPanel />
 
+        {/* Affectation des structures Empire Group aux gestionnaires */}
+        <StructureAssignmentsPanel users={users} />
+
         {/* Matrice des permissions */}
         <div className="card overflow-hidden">
           <div className="flex items-center gap-2 p-4 border-b border-hud-line">
@@ -447,6 +451,115 @@ function CvAdvancesPanel() {
             </table>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+type Assignment = {
+  id: string;
+  businessUnit: string;
+  createdAt: string;
+  user: { id: string; fullName: string; username: string; role: string };
+};
+
+// Affecte un ou plusieurs gestionnaires à une structure Empire Group. Les données
+// qu'ils saisissent pour cette structure restent modifiables/supprimables 5h après
+// la saisie ; passé ce délai, seul l'administrateur peut encore intervenir.
+function StructureAssignmentsPanel({ users }: { users: { id: string; fullName: string; role: string }[] }) {
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState('');
+  const [businessUnit, setBusinessUnit] = useState(BUSINESS_UNITS[0].key as string);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const res = await fetch('/api/structure-assignments');
+    if (res.ok) {
+      const d = await res.json();
+      setAssignments(Array.isArray(d) ? d : []);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function handleAssign(e: React.FormEvent) {
+    e.preventDefault();
+    setError(''); setSaving(true);
+    const res = await fetch('/api/structure-assignments', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, businessUnit }),
+    });
+    setSaving(false);
+    if (!res.ok) { const d = await res.json().catch(() => ({})); setError(d.error ?? 'Erreur.'); return; }
+    setUserId('');
+    load();
+  }
+
+  async function handleRemove(id: string) {
+    if (!confirm('Retirer cette affectation ?')) return;
+    await fetch(`/api/structure-assignments/${id}`, { method: 'DELETE' });
+    load();
+  }
+
+  const businessUnitLabel = (key: string) => BUSINESS_UNITS.find((u) => u.key === key)?.label ?? key;
+
+  return (
+    <div className="card overflow-hidden">
+      <div className="flex items-center gap-2 p-4 border-b border-hud-line">
+        <div className="w-1 h-5 rounded-full bg-hud-cyan" />
+        <h2 className="hud-title">Gestion des structures Empire Group</h2>
+      </div>
+      <div className="p-4 space-y-4">
+        <p className="text-xs text-gray-600">
+          Un gestionnaire affecté à une structure peut y saisir des opérations (stock, ventes, services).
+          Ses saisies restent modifiables/supprimables pendant <span className="font-bold text-hud-cyan">5 heures</span> après
+          l&apos;enregistrement ; passé ce délai, seul l&apos;administrateur peut encore intervenir.
+        </p>
+        <form onSubmit={handleAssign} className="flex flex-wrap gap-3 items-end">
+          <div>
+            <label className="hud-label">Utilisateur</label>
+            <select value={userId} onChange={(e) => setUserId(e.target.value)} required className="form-select w-56">
+              <option value="">— Sélectionner —</option>
+              {users.filter((u) => u.role !== 'ADMIN').map((u) => (
+                <option key={u.id} value={u.id}>{u.fullName}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="hud-label">Structure</label>
+            <select value={businessUnit} onChange={(e) => setBusinessUnit(e.target.value)} className="form-select w-64">
+              {BUSINESS_UNITS.map((u) => <option key={u.key} value={u.key}>{u.label}</option>)}
+            </select>
+          </div>
+          <button type="submit" disabled={saving} className="btn-primary text-sm">
+            {saving ? 'Affectation...' : '+ Affecter'}
+          </button>
+          {error && <p className="text-xs text-empire-rouge font-bold w-full">{error}</p>}
+        </form>
+
+        <div className="overflow-x-auto">
+          <table className="hud-table">
+            <thead><tr><th>Gestionnaire</th><th>Structure</th><th>Affecté le</th><th></th></tr></thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={4} className="text-center italic text-gray-500 py-6">⟳ Chargement...</td></tr>
+              ) : assignments.length === 0 ? (
+                <tr><td colSpan={4} className="text-center italic text-gray-500 py-6">Aucune affectation de structure.</td></tr>
+              ) : assignments.map((a) => (
+                <tr key={a.id}>
+                  <td className="font-bold">{a.user.fullName} <span className="text-xs text-gray-500">(@{a.user.username})</span></td>
+                  <td>{businessUnitLabel(a.businessUnit)}</td>
+                  <td className="text-xs text-gray-500">{new Date(a.createdAt).toLocaleDateString('fr-FR')}</td>
+                  <td><button onClick={() => handleRemove(a.id)} className="btn-danger text-xs py-1 px-2">Retirer</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

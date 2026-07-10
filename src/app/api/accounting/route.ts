@@ -1,7 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { requireSession, handleAccessError, logAudit } from '@/lib/access';
+import { requireSession, requireStructureAccess, handleAccessError, logAudit } from '@/lib/access';
+
+const businessUnitEnum = z.enum([
+  'EMPIRE_ASSURANCE',
+  'AUTO_ECOLE_EMPIRE',
+  'EMPIRE_LANGUAGE_ACADEMY',
+  'EMPIRE_TRAVEL',
+  'EMPIRE_DRIVE',
+  'EMPIRE_SECURE',
+]);
 
 const createSchema = z.object({
   date: z.string().min(1),
@@ -9,11 +18,13 @@ const createSchema = z.object({
   category: z.string().min(1),
   label: z.string().min(1),
   amount: z.number().positive(),
-  paymentMode: z.enum(['ESPECES', 'MOBILE_MONEY', 'VIREMENT', 'AUTRE']).default('ESPECES'),
+  paymentMode: z.enum(['ESPECES', 'MOBILE_MONEY', 'VIREMENT', 'AUTRE', 'PORTEFEUILLE']).default('ESPECES'),
   note: z.string().optional(),
+  // Rattachement optionnel à une structure Empire Group (ex: vente de service).
+  businessUnit: businessUnitEnum.optional(),
 });
 
-// GET /api/accounting?from=&to=&type= — tous les utilisateurs authentifiés
+// GET /api/accounting?from=&to=&type=&businessUnit= — tous les utilisateurs authentifiés
 export async function GET(req: NextRequest) {
   try {
     await requireSession();
@@ -21,6 +32,7 @@ export async function GET(req: NextRequest) {
     const from = searchParams.get('from');
     const to = searchParams.get('to');
     const type = searchParams.get('type');
+    const businessUnit = searchParams.get('businessUnit');
 
     const where: Record<string, unknown> = {};
     if (from || to) {
@@ -33,6 +45,11 @@ export async function GET(req: NextRequest) {
       }
     }
     if (type === 'ENTREE' || type === 'SORTIE') where.type = type;
+    if (businessUnit === 'NONE') {
+      where.businessUnit = null;
+    } else if (businessUnit) {
+      where.businessUnit = businessUnit;
+    }
 
     const entries = await prisma.accountingEntry.findMany({
       where,
@@ -51,6 +68,8 @@ export async function GET(req: NextRequest) {
         amount: Number(e.amount),
         paymentMode: e.paymentMode,
         note: e.note,
+        businessUnit: e.businessUnit,
+        createdAt: e.createdAt,
         enteredBy: `${e.enteredBy.fullName} (@${e.enteredBy.username})`,
       }))
     );
@@ -59,12 +78,17 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST /api/accounting — tous les utilisateurs authentifiés
+// POST /api/accounting — tous les utilisateurs authentifiés pour une écriture générale ;
+// si businessUnit est précisé, seul l'ADMIN ou un gestionnaire affecté à cette structure peut écrire.
 export async function POST(req: NextRequest) {
   try {
     const session = await requireSession();
     const body = await req.json();
     const data = createSchema.parse(body);
+
+    if (data.businessUnit) {
+      await requireStructureAccess(session.user.id, session.user.role, data.businessUnit);
+    }
 
     const entry = await prisma.accountingEntry.create({
       data: {
@@ -75,6 +99,7 @@ export async function POST(req: NextRequest) {
         amount: data.amount,
         paymentMode: data.paymentMode,
         note: data.note,
+        businessUnit: data.businessUnit,
         enteredById: session.user.id,
       },
     });
@@ -82,6 +107,7 @@ export async function POST(req: NextRequest) {
     await logAudit(session.user.id, 'CREATE_ACCOUNTING', 'AccountingEntry', entry.id, {
       type: data.type,
       amount: data.amount,
+      businessUnit: data.businessUnit,
     });
 
     return NextResponse.json({ id: entry.id }, { status: 201 });

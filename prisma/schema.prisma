@@ -44,6 +44,22 @@ enum WalletMovementType {
   RETRAIT
 }
 
+// Structures du groupe Empire, gérées depuis la cellule Comptabilité.
+enum BusinessUnit {
+  EMPIRE_ASSURANCE
+  AUTO_ECOLE_EMPIRE
+  EMPIRE_LANGUAGE_ACADEMY
+  EMPIRE_TRAVEL
+  EMPIRE_DRIVE
+  EMPIRE_SECURE
+}
+
+enum StockMovementType {
+  APPRO  // réapprovisionnement (entrée de stock)
+  VENTE  // vente (sortie de stock, génère une recette)
+  AJUSTEMENT // correction d'inventaire
+}
+
 model User {
   id           String   @id @default(cuid())
   username     String   @unique
@@ -74,6 +90,9 @@ model User {
   pendingOwnersEntered  PendingOwner[]        @relation("PendingOwnerEnteredBy")
   pendingOwnerComments  PendingOwnerComment[] @relation("PendingOwnerCommentAuthor")
   walletMovementsEntered WalletMovement[]     @relation("WalletMovementEnteredBy")
+  productsCreated       Product[]             @relation("ProductCreatedBy")
+  stockMovementsEntered StockMovement[]       @relation("StockMovementEnteredBy")
+  structureAssignments  StructureAssignment[]
 
   @@map("users")
 }
@@ -377,22 +396,83 @@ model ChatMessage {
 
 // Comptabilité Empire : flux de trésorerie (entrées / sorties) saisi manuellement.
 model AccountingEntry {
-  id          String         @id @default(cuid())
-  date        DateTime
-  type        AccountingType
-  category    String         // ex: "Recette flotte", "Salaire", "Carburant", "Réparation"...
-  label       String         // libellé de l'opération
-  amount      Decimal        @db.Decimal(14, 2) // toujours positif ; le signe vient du type
-  paymentMode PaymentMode    @default(ESPECES)
-  note        String?
-  enteredById String
-  createdAt   DateTime       @default(now())
+  id           String         @id @default(cuid())
+  date         DateTime
+  type         AccountingType
+  category     String         // ex: "Recette flotte", "Salaire", "Carburant", "Réparation"...
+  label        String         // libellé de l'opération
+  amount       Decimal        @db.Decimal(14, 2) // toujours positif ; le signe vient du type
+  paymentMode  PaymentMode    @default(ESPECES)
+  note         String?
+  // Rattachement optionnel à une structure Empire Group (null = écriture générale Empire Drive).
+  businessUnit BusinessUnit?
+  enteredById  String
+  createdAt    DateTime       @default(now())
 
-  enteredBy User @relation("AccountingEnteredBy", fields: [enteredById], references: [id])
+  enteredBy      User            @relation("AccountingEnteredBy", fields: [enteredById], references: [id])
+  stockMovement  StockMovement?
 
   @@index([date])
   @@index([type])
+  @@index([businessUnit])
   @@map("accounting_entries")
+}
+
+// Catalogue des produits en stock d'une structure (ex: Attestation, Manuel, Kit GPS).
+model Product {
+  id               String       @id @default(cuid())
+  businessUnit     BusinessUnit
+  name             String
+  unitPrice        Decimal      @db.Decimal(14, 2)
+  quantityInStock  Int          @default(0)
+  active           Boolean      @default(true)
+  createdById      String
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  createdBy       User             @relation("ProductCreatedBy", fields: [createdById], references: [id])
+  stockMovements  StockMovement[]
+
+  @@index([businessUnit])
+  @@map("products")
+}
+
+// Mouvement de stock (vente / réappro / ajustement), avec lien optionnel vers
+// l'écriture comptable générée automatiquement (recette de vente, coût d'achat).
+model StockMovement {
+  id                String            @id @default(cuid())
+  productId         String
+  type              StockMovementType
+  quantity          Int
+  unitPrice         Decimal           @db.Decimal(14, 2)
+  totalAmount        Decimal           @db.Decimal(14, 2)
+  resultStock       Int
+  date              DateTime
+  note              String?
+  enteredById       String
+  createdAt         DateTime          @default(now())
+  accountingEntryId String?           @unique
+
+  product         Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  enteredBy       User             @relation("StockMovementEnteredBy", fields: [enteredById], references: [id])
+  accountingEntry AccountingEntry? @relation(fields: [accountingEntryId], references: [id], onDelete: SetNull)
+
+  @@index([productId])
+  @@map("stock_movements")
+}
+
+// Affectation d'une structure à un gestionnaire : il peut saisir des opérations pour
+// cette structure, modifiables/supprimables par lui pendant 5h (au-delà, ADMIN uniquement).
+model StructureAssignment {
+  id           String       @id @default(cuid())
+  userId       String
+  businessUnit BusinessUnit
+  createdAt    DateTime     @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, businessUnit])
+  @@map("structure_assignments")
 }
 
 model AuditLog {
