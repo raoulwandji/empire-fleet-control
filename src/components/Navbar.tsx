@@ -27,6 +27,31 @@ function roleLabel(role?: string) {
   return 'Employé';
 }
 
+// Petit carillon à deux notes généré via Web Audio (aucun fichier audio requis).
+function playChatChime() {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    const ctx = new AudioCtx();
+    const notes = [880, 1108.73]; // La5, Do#6
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      const start = ctx.currentTime + i * 0.13;
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(0.18, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.35);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + 0.4);
+    });
+    setTimeout(() => ctx.close(), 900);
+  } catch {
+    // Audio non disponible (autoplay bloqué, navigateur non supporté...) — silencieux.
+  }
+}
+
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
@@ -39,6 +64,15 @@ export default function Navbar() {
   const [unreadCount, setUnreadCount] = useState(0);
   const btnRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const prevUnreadRef = useRef(0);
+  const firstCheckRef = useRef(true);
+
+  // Demande la permission de notification navigateur une seule fois (sans bloquer l'UI).
+  useEffect(() => {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+  }, []);
 
   // Clé localStorage par utilisateur pour la date de dernière lecture
   const storageKey = session?.user.id ? `chat_last_read_${session.user.id}` : null;
@@ -51,17 +85,32 @@ export default function Navbar() {
     }
   }, [pathname, storageKey]);
 
-  // Polling des messages non lus toutes les 15s
+  // Polling des messages non lus toutes les 15s — sonnerie + notification navigateur
+  // dès qu'un nouveau message arrive (le compteur augmente).
   useEffect(() => {
     if (!session?.user || !storageKey) return;
     function checkUnread() {
+      const onChatPage = pathname?.startsWith('/chat');
       const lastRead = localStorage.getItem(storageKey!) ?? new Date(0).toISOString();
       fetch(`/api/chat?since=${encodeURIComponent(lastRead)}`)
         .then((r) => r.ok ? r.json() : { count: 0 })
         .then((data) => {
-          if (!pathname?.startsWith('/chat')) {
-            setUnreadCount(data.count ?? 0);
+          const count = data.count ?? 0;
+          if (!onChatPage) {
+            setUnreadCount(count);
           }
+          // Ne sonne pas au tout premier chargement (état initial), seulement sur une vraie augmentation.
+          if (!firstCheckRef.current && !onChatPage && count > prevUnreadRef.current) {
+            playChatChime();
+            if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+              new Notification('Nouveau message — EMPIRE-FLEET CONTROL', {
+                body: count === 1 ? 'Vous avez un nouveau message.' : `Vous avez ${count} nouveaux messages.`,
+                icon: '/logo.jpg',
+              });
+            }
+          }
+          prevUnreadRef.current = count;
+          firstCheckRef.current = false;
         });
     }
     checkUnread();

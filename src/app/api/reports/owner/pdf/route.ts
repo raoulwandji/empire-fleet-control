@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
           driver: { ownerId },
           ...(Object.keys(dateFilter).length > 0 ? { date: dateFilter } : {}),
         },
-        select: { amount: true, date: true, driverId: true },
+        select: { amount: true, date: true, driverId: true, isInactive: true, inactivityReason: true, comment: true },
         orderBy: { date: 'asc' },
       }),
       prisma.ownerPrefinancement.findMany({
@@ -76,11 +76,21 @@ export async function GET(req: NextRequest) {
     }
 
     const byWeekDriver = new Map<string, Map<string, number>>();
+    const byWeekInactive = new Map<string, { driverId: string; date: Date; reason: string | null }[]>();
+    const byWeekNotes = new Map<string, { driverId: string; date: Date; amount: number; comment: string }[]>();
     for (const p of payments) {
       const wk = getWeekStart(p.date);
       if (!byWeekDriver.has(wk)) byWeekDriver.set(wk, new Map());
       const dMap = byWeekDriver.get(wk)!;
       dMap.set(p.driverId, (dMap.get(p.driverId) ?? 0) + Number(p.amount));
+
+      if (p.isInactive) {
+        if (!byWeekInactive.has(wk)) byWeekInactive.set(wk, []);
+        byWeekInactive.get(wk)!.push({ driverId: p.driverId, date: p.date, reason: p.inactivityReason });
+      } else if (p.comment?.trim()) {
+        if (!byWeekNotes.has(wk)) byWeekNotes.set(wk, []);
+        byWeekNotes.get(wk)!.push({ driverId: p.driverId, date: p.date, amount: Number(p.amount), comment: p.comment.trim() });
+      }
     }
 
     const byWeekPref = new Map<string, typeof prefinancements>();
@@ -108,12 +118,34 @@ export async function GET(req: NextRequest) {
       const dMap = byWeekDriver.get(wk) ?? new Map<string, number>();
       const weekPrefs = byWeekPref.get(wk) ?? [];
       const comm = byWeekComm.get(wk);
+      const weekInactive = byWeekInactive.get(wk) ?? [];
+      const weekNotes = byWeekNotes.get(wk) ?? [];
 
       // Versements par véhicule
       for (const d of drivers) {
         const total = dMap.get(d.id) ?? 0;
         if (total > 0) {
           rows.push({ semaine: wk, ligne: 'Versement', vehicule: d.vehiclePlate, detail: `${d.fullName} (${d.code})`, montant: fmt(total) });
+        }
+        // Jours d'inactivité (motif) — rendus visibles dans le rapport de synthèse.
+        for (const inact of weekInactive.filter((x) => x.driverId === d.id)) {
+          rows.push({
+            semaine: wk,
+            ligne: 'Jour inactif',
+            vehicule: d.vehiclePlate,
+            detail: `${inact.date.toLocaleDateString('fr-FR')} — ${inact.reason || 'motif non précisé'}`,
+            montant: '—',
+          });
+        }
+        // Versements avec remarque (jour incomplet, explication...)
+        for (const note of weekNotes.filter((x) => x.driverId === d.id)) {
+          rows.push({
+            semaine: wk,
+            ligne: 'Remarque',
+            vehicule: d.vehiclePlate,
+            detail: `${note.date.toLocaleDateString('fr-FR')} — ${note.comment}`,
+            montant: fmt(note.amount),
+          });
         }
       }
 

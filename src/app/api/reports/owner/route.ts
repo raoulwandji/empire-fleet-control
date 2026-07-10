@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
           driver: { ownerId },
           ...(Object.keys(dateFilter).length > 0 ? { date: dateFilter } : {}),
         },
-        select: { amount: true, date: true, driverId: true },
+        select: { amount: true, date: true, driverId: true, isInactive: true, inactivityReason: true, comment: true },
         orderBy: { date: 'asc' },
       }),
       prisma.ownerPrefinancement.findMany({
@@ -77,11 +77,27 @@ export async function GET(req: NextRequest) {
 
     // weekKey -> driverId -> total versements
     const byWeekDriver = new Map<string, Map<string, number>>();
+    // weekKey -> driverId -> jours d'inactivité (motif)
+    const byWeekInactive = new Map<string, Map<string, { date: string; reason: string | null }[]>>();
+    // weekKey -> driverId -> versements avec commentaire (jours incomplets / remarques)
+    const byWeekNotes = new Map<string, Map<string, { date: string; amount: number; comment: string }[]>>();
     for (const p of payments) {
       const wk = getWeekStart(p.date);
       if (!byWeekDriver.has(wk)) byWeekDriver.set(wk, new Map());
       const dMap = byWeekDriver.get(wk)!;
       dMap.set(p.driverId, (dMap.get(p.driverId) ?? 0) + Number(p.amount));
+
+      if (p.isInactive) {
+        if (!byWeekInactive.has(wk)) byWeekInactive.set(wk, new Map());
+        const iMap = byWeekInactive.get(wk)!;
+        if (!iMap.has(p.driverId)) iMap.set(p.driverId, []);
+        iMap.get(p.driverId)!.push({ date: p.date.toISOString().slice(0, 10), reason: p.inactivityReason });
+      } else if (p.comment?.trim()) {
+        if (!byWeekNotes.has(wk)) byWeekNotes.set(wk, new Map());
+        const nMap = byWeekNotes.get(wk)!;
+        if (!nMap.has(p.driverId)) nMap.set(p.driverId, []);
+        nMap.get(p.driverId)!.push({ date: p.date.toISOString().slice(0, 10), amount: Number(p.amount), comment: p.comment.trim() });
+      }
     }
 
     // weekKey -> préfinancements[]
@@ -107,12 +123,16 @@ export async function GET(req: NextRequest) {
 
     const rows = allWeeks.map((wk) => {
       const dMap = byWeekDriver.get(wk) ?? new Map<string, number>();
+      const iMap = byWeekInactive.get(wk) ?? new Map<string, { date: string; reason: string | null }[]>();
+      const nMap = byWeekNotes.get(wk) ?? new Map<string, { date: string; amount: number; comment: string }[]>();
       const perDriver = drivers.map((d) => ({
         driverId: d.id,
         vehiclePlate: d.vehiclePlate,
         fullName: d.fullName,
         code: d.code,
         total: dMap.get(d.id) ?? 0,
+        inactiveDays: iMap.get(d.id) ?? [],
+        notes: nMap.get(d.id) ?? [],
       }));
       const weekTotal = perDriver.reduce((s, x) => s + x.total, 0);
       const weekPrefs = (byWeekPref.get(wk) ?? []).map((pf) => ({

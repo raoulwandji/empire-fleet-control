@@ -1,11 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Navbar from '@/components/Navbar';
 
 type Owner = { id: string; fullName: string; phone: string; location: string | null };
+
+type InactiveDay = { date: string; reason: string | null };
+type PaymentNote = { date: string; amount: number; comment: string };
 
 type DriverRow = {
   driverId: string;
@@ -13,6 +16,8 @@ type DriverRow = {
   fullName: string;
   code: string;
   total: number;
+  inactiveDays: InactiveDay[];
+  notes: PaymentNote[];
 };
 
 type PrefRow = {
@@ -224,17 +229,41 @@ export default function ReportsPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {row.perDriver.filter((d) => d.total > 0).map((d) => (
-                        <tr key={d.driverId} className="border-b border-hud-line/40 hover:bg-hud-cyan/3 transition-colors">
-                          <td className="px-4 py-2 font-mono text-hud-cyan font-semibold">{d.vehiclePlate}</td>
-                          <td className="px-4 py-2 text-gray-300">
-                            {d.fullName}
-                            <span className="ml-2 text-xs text-gray-500">({d.code})</span>
-                          </td>
-                          <td className="px-4 py-2 text-right font-semibold text-green-400">{fmtAmount(d.total)}</td>
-                        </tr>
+                      {row.perDriver.filter((d) => d.total > 0 || d.inactiveDays.length > 0 || d.notes.length > 0).map((d) => (
+                        <Fragment key={d.driverId}>
+                          <tr className="border-b border-hud-line/40 hover:bg-hud-cyan/3 transition-colors">
+                            <td className="px-4 py-2 font-mono text-hud-cyan font-semibold">{d.vehiclePlate}</td>
+                            <td className="px-4 py-2 text-gray-300">
+                              {d.fullName}
+                              <span className="ml-2 text-xs text-gray-500">({d.code})</span>
+                            </td>
+                            <td className="px-4 py-2 text-right font-semibold text-green-400">
+                              {d.total > 0 ? fmtAmount(d.total) : <span className="text-gray-600">—</span>}
+                            </td>
+                          </tr>
+                          {(d.inactiveDays.length > 0 || d.notes.length > 0) && (
+                            <tr className="border-b border-hud-line/40 bg-hud-panel2/30">
+                              <td colSpan={3} className="px-4 py-2 space-y-1">
+                                {d.inactiveDays.map((day, i) => (
+                                  <div key={`inactive-${i}`} className="text-xs flex items-center gap-2">
+                                    <span className="badge-warn">Inactif</span>
+                                    <span className="text-gray-500">{new Date(day.date).toLocaleDateString('fr-FR')}</span>
+                                    <span className="text-gray-400 italic">— {day.reason || 'motif non précisé'}</span>
+                                  </div>
+                                ))}
+                                {d.notes.map((n, i) => (
+                                  <div key={`note-${i}`} className="text-xs flex items-center gap-2">
+                                    <span className="text-yellow-500 font-semibold">Remarque</span>
+                                    <span className="text-gray-500">{new Date(n.date).toLocaleDateString('fr-FR')}</span>
+                                    <span className="text-gray-400 italic">— {n.comment} ({fmtAmount(n.amount)})</span>
+                                  </div>
+                                ))}
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
                       ))}
-                      {row.perDriver.every((d) => d.total === 0) && (
+                      {row.perDriver.every((d) => d.total === 0 && d.inactiveDays.length === 0 && d.notes.length === 0) && (
                         <tr className="border-b border-hud-line/20">
                           <td colSpan={3} className="px-4 py-2 text-xs text-gray-600 italic">Aucun versement cette semaine</td>
                         </tr>
