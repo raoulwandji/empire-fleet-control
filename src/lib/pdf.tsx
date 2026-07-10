@@ -1,9 +1,31 @@
-import { Document, Page, Text, View, StyleSheet, renderToBuffer } from '@react-pdf/renderer';
+import { Document, Page, Text, View, Image, StyleSheet, renderToBuffer } from '@react-pdf/renderer';
+import fs from 'fs';
+import path from 'path';
 import { Column } from '@/lib/export';
+
+const COMPANY_NAME = 'EMPIRE-FLEET CONTROL';
+
+// Logo chargé une seule fois (fichier local, ne change pas en cours d'exécution).
+let cachedLogoDataUri: string | null | undefined;
+function getLogoDataUri(): string | null {
+  if (cachedLogoDataUri !== undefined) return cachedLogoDataUri;
+  try {
+    const logoPath = path.join(process.cwd(), 'public', 'logo.jpg');
+    const buffer = fs.readFileSync(logoPath);
+    cachedLogoDataUri = `data:image/jpeg;base64,${buffer.toString('base64')}`;
+  } catch {
+    cachedLogoDataUri = null;
+  }
+  return cachedLogoDataUri;
+}
 
 const styles = StyleSheet.create({
   page: { padding: 24, fontSize: 9 },
-  title: { fontSize: 14, marginBottom: 10, color: '#b3122a', fontWeight: 'bold' },
+  header: { flexDirection: 'row', alignItems: 'center', marginBottom: 14, gap: 10 },
+  logo: { width: 42, height: 42, borderRadius: 4 },
+  headerText: { flexDirection: 'column' },
+  companyName: { fontSize: 13, fontWeight: 'bold', color: '#181210' },
+  title: { fontSize: 11, marginTop: 2, color: '#b3122a', fontWeight: 'bold' },
   table: { display: 'flex', width: '100%' },
   row: { flexDirection: 'row', borderBottom: '1px solid #ddd' },
   headerRow: { flexDirection: 'row', backgroundColor: '#181210', paddingVertical: 4 },
@@ -20,10 +42,18 @@ function TablePdf({
   columns: Column[];
   rows: Record<string, unknown>[];
 }) {
+  const logo = getLogoDataUri();
+
   return (
     <Document>
       <Page size="A4" orientation="landscape" style={styles.page}>
-        <Text style={styles.title}>{title}</Text>
+        <View style={styles.header}>
+          {logo && <Image src={logo} style={styles.logo} />}
+          <View style={styles.headerText}>
+            <Text style={styles.companyName}>{COMPANY_NAME}</Text>
+            <Text style={styles.title}>{title}</Text>
+          </View>
+        </View>
         <View style={styles.table}>
           <View style={styles.headerRow}>
             {columns.map((c) => (

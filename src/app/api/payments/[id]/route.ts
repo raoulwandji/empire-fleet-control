@@ -4,12 +4,24 @@ import { requireSession, requireDriverWriteAccess, handleAccessError, logAudit }
 import { isUnusualPaymentDay } from '@/lib/business';
 import { z } from 'zod';
 
-const paymentUpdateSchema = z.object({
-  date: z.string().min(1),
-  amount: z.number().positive(),
-  paymentMode: z.enum(['ESPECES', 'MOBILE_MONEY', 'VIREMENT', 'AUTRE', 'PORTEFEUILLE']),
-  comment: z.string().optional(),
-});
+const paymentUpdateSchema = z
+  .object({
+    date: z.string().min(1),
+    amount: z.number().nonnegative(),
+    paymentMode: z.enum(['ESPECES', 'MOBILE_MONEY', 'VIREMENT', 'AUTRE', 'PORTEFEUILLE']),
+    comment: z.string().optional(),
+    isInactive: z.boolean().optional().default(false),
+    inactivityReason: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.isInactive && !data.inactivityReason?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['inactivityReason'],
+        message: 'Un motif est requis pour un jour inactif.',
+      });
+    }
+  });
 
 // PATCH /api/payments/[id] — corriger une saisie manuelle de versement/loyer
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
@@ -36,6 +48,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         paymentMode: data.paymentMode,
         comment: data.comment || null,
         isUnusualDay: unusual,
+        isInactive: data.isInactive,
+        inactivityReason: data.isInactive ? data.inactivityReason : null,
       },
     });
 

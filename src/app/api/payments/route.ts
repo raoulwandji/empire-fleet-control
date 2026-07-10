@@ -62,6 +62,8 @@ export async function POST(req: NextRequest) {
           paymentMode: data.paymentMode,
           comment: data.comment,
           isUnusualDay: unusual,
+          isInactive: data.isInactive,
+          inactivityReason: data.isInactive ? data.inactivityReason : null,
           enteredById: session.user.id,
         },
       });

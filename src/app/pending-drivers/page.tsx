@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import { formatFCFA } from '@/lib/business';
 import clsx from 'clsx';
@@ -452,9 +453,11 @@ function ProspectTable({
    intégrés à la table Owner) — CRUD + fil de commentaires
 ───────────────────────────────────────────────────────────── */
 function PendingOwnersSection() {
+  const router = useRouter();
   const [items, setItems] = useState<PendingOwner[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
+  const [promotingId, setPromotingId] = useState<string | null>(null);
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -532,6 +535,25 @@ function PendingOwnersSection() {
       return;
     }
     fetchData();
+  }
+
+  // Intègre le prospect à la liste officielle des propriétaires, puis le retire
+  // automatiquement de la liste d'attente.
+  async function handlePromote(id: string, fullName: string) {
+    if (!confirm(`Intégrer "${fullName}" comme propriétaire officiel ? Il sera retiré de la liste d'attente.`)) return;
+    setPromotingId(id);
+    const res = await fetch(`/api/pending-owners/${id}/promote`, { method: 'POST' });
+    setPromotingId(null);
+    if (!res.ok) {
+      const data = await res.json();
+      alert(data.error ?? 'Erreur.');
+      return;
+    }
+    const owner = await res.json();
+    setItems((prev) => prev.filter((it) => it.id !== id));
+    if (confirm(`"${owner.fullName}" a été intégré aux propriétaires. Ouvrir sa fiche maintenant ?`)) {
+      router.push(`/owners/${owner.id}`);
+    }
   }
 
   return (
@@ -620,6 +642,13 @@ function PendingOwnersSection() {
                   />
                 }
               >
+                <button
+                  onClick={() => handlePromote(item.id, item.fullName)}
+                  disabled={promotingId === item.id}
+                  className="btn-primary text-xs py-1 px-2 disabled:opacity-50"
+                >
+                  {promotingId === item.id ? 'Intégration...' : '✓ Intégrer → Propriétaire'}
+                </button>
                 <button onClick={() => openEditForm(item)} className="btn-secondary text-xs py-1 px-2">Modifier</button>
                 <button onClick={() => handleDelete(item.id)} className="btn-danger text-xs py-1 px-2">Supprimer</button>
               </ExpandableRow>

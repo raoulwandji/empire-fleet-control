@@ -18,6 +18,16 @@ function fmtEntered(u?: { fullName: string; username?: string } | null) {
   return u.username ? `${u.fullName} (@${u.username})` : u.fullName;
 }
 
+// Motifs courants d'inactivité d'un véhicule un jour donné (versement à 0 FCFA).
+const INACTIVITY_REASONS = [
+  'Panne mécanique',
+  'Entretien / révision',
+  'Jour férié',
+  'Chauffeur indisponible (maladie/congé)',
+  'Véhicule en réparation (carrosserie/sinistre)',
+  'Autre',
+] as const;
+
 export default function DriverDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -290,6 +300,17 @@ function PaymentsTab({ driver, canWrite, onChange }: { driver: DriverDetail; can
   const [paymentMode, setPaymentMode] = useState('ESPECES');
   const [comment, setComment] = useState('');
   const [error, setError] = useState('');
+
+  // Jour inactif (véhicule non exploité) : versement à 0 FCFA avec motif obligatoire.
+  const [isInactive, setIsInactive] = useState(false);
+  const [inactivityReasonPreset, setInactivityReasonPreset] = useState<string>(INACTIVITY_REASONS[0]);
+  const [inactivityReasonCustom, setInactivityReasonCustom] = useState('');
+  const inactivityReason = inactivityReasonPreset === 'Autre' ? inactivityReasonCustom : inactivityReasonPreset;
+
+  function toggleInactive(checked: boolean) {
+    setIsInactive(checked);
+    if (checked) setAmount('0');
+  }
   const [exportFrom, setExportFrom] = useState('');
   const [exportTo, setExportTo] = useState('');
   const [weekFilter, setWeekFilter] = useState(''); // '' = toutes les semaines
@@ -306,6 +327,15 @@ function PaymentsTab({ driver, canWrite, onChange }: { driver: DriverDetail; can
   const [editMode, setEditMode] = useState('ESPECES');
   const [editComment, setEditComment] = useState('');
   const [editError, setEditError] = useState('');
+  const [editIsInactive, setEditIsInactive] = useState(false);
+  const [editInactivityReasonPreset, setEditInactivityReasonPreset] = useState<string>(INACTIVITY_REASONS[0]);
+  const [editInactivityReasonCustom, setEditInactivityReasonCustom] = useState('');
+  const editInactivityReason = editInactivityReasonPreset === 'Autre' ? editInactivityReasonCustom : editInactivityReasonPreset;
+
+  function toggleEditInactive(checked: boolean) {
+    setEditIsInactive(checked);
+    if (checked) setEditAmount('0');
+  }
 
   function buildExportUrl(format: 'pdf' | 'excel') {
     const p = new URLSearchParams({ driverId: driver.id, format });
@@ -316,14 +346,20 @@ function PaymentsTab({ driver, canWrite, onChange }: { driver: DriverDetail; can
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault(); setError('');
-    const payload: Record<string, unknown> = { driverId: driver.id, date, amount: Number(amount), paymentMode, comment: comment || undefined };
+    if (isInactive && !inactivityReason.trim()) { setError('Un motif est requis pour un jour inactif.'); return; }
+    const payload: Record<string, unknown> = {
+      driverId: driver.id, date, amount: Number(amount), paymentMode, comment: comment || undefined,
+      isInactive, inactivityReason: isInactive ? inactivityReason : undefined,
+    };
     if (isCV && walletAction && walletAmount) {
       payload.walletMovement = { type: walletAction, amount: Number(walletAmount) };
     }
     const res = await fetch('/api/payments', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload) });
     if (!res.ok) { setError((await res.json()).error ?? 'Erreur.'); return; }
-    setDate(''); setAmount(''); setComment(''); setWalletAction(''); setWalletAmount(''); onChange();
+    setDate(''); setAmount(''); setComment(''); setWalletAction(''); setWalletAmount('');
+    setIsInactive(false); setInactivityReasonPreset(INACTIVITY_REASONS[0]); setInactivityReasonCustom('');
+    onChange();
   }
 
   function startEdit(p: any) {
@@ -333,12 +369,28 @@ function PaymentsTab({ driver, canWrite, onChange }: { driver: DriverDetail; can
     setEditMode(p.paymentMode);
     setEditComment(p.comment ?? '');
     setEditError('');
+    setEditIsInactive(!!p.isInactive);
+    const reason = p.inactivityReason ?? '';
+    if (reason && (INACTIVITY_REASONS as readonly string[]).includes(reason)) {
+      setEditInactivityReasonPreset(reason);
+      setEditInactivityReasonCustom('');
+    } else if (reason) {
+      setEditInactivityReasonPreset('Autre');
+      setEditInactivityReasonCustom(reason);
+    } else {
+      setEditInactivityReasonPreset(INACTIVITY_REASONS[0]);
+      setEditInactivityReasonCustom('');
+    }
   }
 
   async function saveEdit(id: string) {
     setEditError('');
+    if (editIsInactive && !editInactivityReason.trim()) { setEditError('Un motif est requis pour un jour inactif.'); return; }
     const res = await fetch(`/api/payments/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date: editDate, amount: Number(editAmount), paymentMode: editMode, comment: editComment || undefined }) });
+      body: JSON.stringify({
+        date: editDate, amount: Number(editAmount), paymentMode: editMode, comment: editComment || undefined,
+        isInactive: editIsInactive, inactivityReason: editIsInactive ? editInactivityReason : undefined,
+      }) });
     if (!res.ok) { setEditError((await res.json()).error ?? 'Erreur.'); return; }
     setEditingId(null); onChange();
   }
@@ -371,8 +423,30 @@ function PaymentsTab({ driver, canWrite, onChange }: { driver: DriverDetail; can
           </div>
           <div>
             <label className="hud-label">Montant (FCFA)</label>
-            <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} required placeholder="Ex: 15000" className="form-input w-36" />
+            <input type="number" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} disabled={isInactive} required placeholder="Ex: 15000" className="form-input w-36 disabled:opacity-50" />
           </div>
+          <div className="flex flex-col justify-end pb-1.5">
+            <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer select-none">
+              <input type="checkbox" checked={isInactive} onChange={(e) => toggleInactive(e.target.checked)} className="w-4 h-4" />
+              Jour inactif (véhicule non exploité)
+            </label>
+          </div>
+          {isInactive && (
+            <div className="flex flex-wrap gap-2 items-end">
+              <div>
+                <label className="hud-label">Motif</label>
+                <select value={inactivityReasonPreset} onChange={(e) => setInactivityReasonPreset(e.target.value)} className="form-select w-56">
+                  {INACTIVITY_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                </select>
+              </div>
+              {inactivityReasonPreset === 'Autre' && (
+                <div>
+                  <label className="hud-label">Précisez</label>
+                  <input value={inactivityReasonCustom} onChange={(e) => setInactivityReasonCustom(e.target.value)} placeholder="Motif précis..." className="form-input w-48" />
+                </div>
+              )}
+            </div>
+          )}
           <div>
             <label className="hud-label">Mode de paiement</label>
             <select
@@ -480,7 +554,23 @@ function PaymentsTab({ driver, canWrite, onChange }: { driver: DriverDetail; can
               editingId === p.id ? (
                 <tr key={p.id} className="bg-hud-cyan/5">
                   <td><input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} className="form-input w-auto" /></td>
-                  <td><input type="number" value={editAmount} onChange={(e) => setEditAmount(e.target.value)} className="form-input w-28" /></td>
+                  <td>
+                    <input type="number" min="0" value={editAmount} onChange={(e) => setEditAmount(e.target.value)} disabled={editIsInactive} className="form-input w-28 disabled:opacity-50" />
+                    <label className="flex items-center gap-1.5 text-[11px] text-gray-400 mt-1 cursor-pointer select-none">
+                      <input type="checkbox" checked={editIsInactive} onChange={(e) => toggleEditInactive(e.target.checked)} className="w-3.5 h-3.5" />
+                      Jour inactif
+                    </label>
+                    {editIsInactive && (
+                      <div className="mt-1 space-y-1">
+                        <select value={editInactivityReasonPreset} onChange={(e) => setEditInactivityReasonPreset(e.target.value)} className="form-select w-full text-xs">
+                          {INACTIVITY_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                        {editInactivityReasonPreset === 'Autre' && (
+                          <input value={editInactivityReasonCustom} onChange={(e) => setEditInactivityReasonCustom(e.target.value)} placeholder="Motif précis..." className="form-input w-full text-xs" />
+                        )}
+                      </div>
+                    )}
+                  </td>
                   <td>
                     <select value={editMode} onChange={(e) => setEditMode(e.target.value)} className="form-select w-36">
                       <option value="ESPECES">Espèces</option>
@@ -504,7 +594,14 @@ function PaymentsTab({ driver, canWrite, onChange }: { driver: DriverDetail; can
                     {new Date(p.date).toLocaleDateString('fr-FR')}
                     {p.isUnusualDay && <span className="badge-warn ml-2">Jour inhabituel</span>}
                   </td>
-                  <td className="font-display text-hud-green font-bold">{formatFCFA(Number(p.amount))}</td>
+                  <td className="font-display text-hud-green font-bold">
+                    {formatFCFA(Number(p.amount))}
+                    {p.isInactive && (
+                      <div className="text-[11px] font-normal text-empire-rougeVif mt-0.5">
+                        Inactif — {p.inactivityReason || 'motif non précisé'}
+                      </div>
+                    )}
+                  </td>
                   <td className="text-gray-400 text-xs">{p.paymentMode}</td>
                   <td className="text-gray-400">{p.comment || '—'}</td>
                   <td className="text-gray-600 text-xs">{fmtEntered(p.enteredBy)}</td>

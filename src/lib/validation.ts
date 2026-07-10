@@ -46,21 +46,34 @@ export const driverCreateSchema = driverBaseSchema.superRefine((data, ctx) => {
 
 export const driverUpdateSchema = driverBaseSchema.partial();
 
-export const paymentCreateSchema = z.object({
-  driverId: z.string(),
-  date: z.string(), // ISO
-  amount: z.number().positive(),
-  paymentMode: z.enum(['ESPECES', 'MOBILE_MONEY', 'VIREMENT', 'AUTRE', 'PORTEFEUILLE']).default('ESPECES'),
-  comment: z.string().optional(),
-  // Mouvement de portefeuille optionnel, intégré au moment de la saisie du versement (CV uniquement) :
-  // DEPOT pour garder un surplus, RETRAIT pour couvrir une partie du versement avec le solde existant.
-  walletMovement: z
-    .object({
-      type: z.enum(['DEPOT', 'RETRAIT']),
-      amount: z.number().positive(),
-    })
-    .optional(),
-});
+export const paymentCreateSchema = z
+  .object({
+    driverId: z.string(),
+    date: z.string(), // ISO
+    amount: z.number().nonnegative(),
+    paymentMode: z.enum(['ESPECES', 'MOBILE_MONEY', 'VIREMENT', 'AUTRE', 'PORTEFEUILLE']).default('ESPECES'),
+    comment: z.string().optional(),
+    // Jour à 0 FCFA car le véhicule n'a pas été exploité (panne, entretien, indisponibilité...).
+    isInactive: z.boolean().optional().default(false),
+    inactivityReason: z.string().optional(),
+    // Mouvement de portefeuille optionnel, intégré au moment de la saisie du versement (CV uniquement) :
+    // DEPOT pour garder un surplus, RETRAIT pour couvrir une partie du versement avec le solde existant.
+    walletMovement: z
+      .object({
+        type: z.enum(['DEPOT', 'RETRAIT']),
+        amount: z.number().positive(),
+      })
+      .optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.isInactive && !data.inactivityReason?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['inactivityReason'],
+        message: 'Un motif est requis pour un jour inactif.',
+      });
+    }
+  });
 
 export const cautionMovementCreateSchema = z.object({
   driverId: z.string(),

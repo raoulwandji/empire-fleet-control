@@ -300,6 +300,9 @@ model Payment {
   paymentMode   PaymentMode @default(ESPECES)
   comment       String?
   isUnusualDay  Boolean     @default(false) // mardi/dimanche
+  // Jour à 0 FCFA car le véhicule n'a pas été exploité (panne, entretien, indisponibilité...).
+  isInactive       Boolean  @default(false)
+  inactivityReason String?
   enteredById   String
   createdAt     DateTime    @default(now())
 
