@@ -53,11 +53,13 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
     // En Condition-Vente, la caution est une avance de remboursement :
     // elle s'ajoute au total versé et se déduit du reste à verser.
+    // Les pénalités/sanctions ne sont plus soustraites automatiquement (déduction gérée en interne) :
+    // elles restent affichées à titre purement informatif (appliedPenalties / pendingPenalties).
     const isCV = driver.contractType === 'CONDITION_VENTE';
     const cautionAdvance = isCV ? cautionBalance : 0;
     const totalPaidWithAdvance = totalPaid + cautionAdvance;
     const resteAPayer = isCV
-      ? Number(driver.totalPriceFixed ?? 0) - totalPaidWithAdvance + appliedPenalties
+      ? Number(driver.totalPriceFixed ?? 0) - totalPaidWithAdvance
       : null;
 
     return NextResponse.json({

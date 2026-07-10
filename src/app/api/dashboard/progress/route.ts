@@ -29,7 +29,9 @@ export async function GET(req: NextRequest) {
         const cautionAdvance = d.cautionMovements.reduce((sum, m) => sum + Number(m.amount), 0);
         const totalFixed = Number(d.totalPriceFixed ?? 0);
         const totalPaidWithAdvance = totalPaid + cautionAdvance;
-        const resteAPayer = totalFixed - totalPaidWithAdvance + appliedPenalties;
+        // Les pénalités ne sont plus soustraites du reste à payer (déduction gérée en interne) :
+        // appliedPenalties reste affiché à titre informatif uniquement.
+        const resteAPayer = totalFixed - totalPaidWithAdvance;
         const percent = totalFixed > 0 ? Math.min(100, (totalPaidWithAdvance / totalFixed) * 100) : 0;
 
         return {
