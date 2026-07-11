@@ -1,8 +1,19 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { formatFCFA } from '@/lib/business';
 import { getBusinessUnitConfig } from '@/lib/businessUnits';
+import type { AccountingSummary } from '@/components/AccountingCharts';
+
+const AccountingCharts = dynamic(() => import('@/components/AccountingCharts'), {
+  ssr: false,
+  loading: () => (
+    <div className="card p-6 flex items-center justify-center h-56">
+      <div className="w-8 h-8 border-2 border-hud-cyan border-t-transparent rounded-full animate-spin" />
+    </div>
+  ),
+});
 
 type Product = {
   id: string;
@@ -36,20 +47,29 @@ export default function StructurePanel({ businessUnit, canDelete }: { businessUn
   const config = getBusinessUnitConfig(businessUnit);
   const [products, setProducts] = useState<Product[]>([]);
   const [entries, setEntries] = useState<Entry[]>([]);
+  const [summary, setSummary] = useState<AccountingSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [pRes, eRes] = await Promise.all([
+    const params = new URLSearchParams({ businessUnit });
+    if (dateFrom) params.set('from', dateFrom);
+    if (dateTo) params.set('to', dateTo);
+    const qs = params.toString();
+    const [pRes, eRes, sRes] = await Promise.all([
       config?.hasStock ? fetch(`/api/business-units/products?businessUnit=${businessUnit}`) : Promise.resolve(null),
-      fetch(`/api/accounting?businessUnit=${businessUnit}`),
+      fetch(`/api/accounting?${qs}`),
+      fetch(`/api/accounting/summary?${qs}`),
     ]);
     if (pRes?.ok) setProducts(await pRes.json());
     if (eRes.ok) setEntries(await eRes.json());
+    if (sRes.ok) setSummary(await sRes.json());
     setLoading(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [businessUnit]);
+  }, [businessUnit, dateFrom, dateTo]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -65,6 +85,47 @@ export default function StructurePanel({ businessUnit, canDelete }: { businessUn
   return (
     <div className="space-y-6">
       {error && <p className="text-sm text-empire-rouge font-bold">{error}</p>}
+
+      {/* Filtre de période — comptabilité partielle de cette structure */}
+      <div className="card p-3 flex flex-wrap items-center gap-3">
+        <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Période</span>
+        <div className="flex items-center gap-1.5">
+          <label className="text-xs text-gray-500 font-bold">Du</label>
+          <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="form-input text-xs py-1 px-2 w-36" />
+          <label className="text-xs text-gray-500 font-bold">Au</label>
+          <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="form-input text-xs py-1 px-2 w-36" />
+          {(dateFrom || dateTo) && (
+            <button onClick={() => { setDateFrom(''); setDateTo(''); }} className="text-xs text-hud-cyan font-bold hover:underline">
+              Réinitialiser
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Flux de la structure — comptabilité partielle */}
+      {summary && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="stat-card">
+            <span className="stat-label">Entrées</span>
+            <span className="font-display font-black text-lg tabular-nums" style={{ color: '#2f7d4f' }}>+ {formatFCFA(summary.totals.entrees)}</span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-label">Sorties</span>
+            <span className="font-display font-black text-lg tabular-nums" style={{ color: '#b3122a' }}>− {formatFCFA(summary.totals.sorties)}</span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-label">Solde net</span>
+            <span className="font-display font-black text-lg tabular-nums" style={{ color: summary.totals.solde >= 0 ? '#2f7d4f' : '#b3122a' }}>
+              {formatFCFA(summary.totals.solde)}
+            </span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-label">Opérations</span>
+            <span className="font-display font-black text-lg tabular-nums text-hud-cyan">{summary.totals.count}</span>
+          </div>
+        </div>
+      )}
+      {summary && <AccountingCharts summary={summary} animate />}
 
       {config.hasStock && (
         <StockSection

@@ -1,12 +1,21 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
+import { useSearchParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import AvatarUploader from '@/components/AvatarUploader';
+import UsersManager from '@/components/UsersManager';
+import AssignmentsManager from '@/components/AssignmentsManager';
 import { CAPABILITIES, resolveCapabilities, type CapabilityKey } from '@/lib/capabilities';
 import { formatFCFA } from '@/lib/business';
 import { BUSINESS_UNITS } from '@/lib/businessUnits';
+
+const SETTINGS_TABS = ['Accès & rôles', 'Utilisateurs', 'Affectations', 'Avances CV', 'Structures Empire Group'] as const;
+const TAB_QUERY_MAP: Record<string, typeof SETTINGS_TABS[number]> = {
+  utilisateurs: 'Utilisateurs',
+  affectations: 'Affectations',
+};
 
 type User = {
   id: string;
@@ -35,8 +44,23 @@ const ROLE_MATRIX = [
 ];
 
 export default function SettingsPage() {
+  return (
+    <Suspense fallback={null}>
+      <SettingsPageContent />
+    </Suspense>
+  );
+}
+
+function SettingsPageContent() {
   const { data: session } = useSession();
   const isAdmin = session?.user.role === 'ADMIN';
+  const searchParams = useSearchParams();
+
+  const [tab, setTab] = useState<typeof SETTINGS_TABS[number]>('Accès & rôles');
+  useEffect(() => {
+    const q = searchParams.get('tab');
+    if (q && TAB_QUERY_MAP[q]) setTab(TAB_QUERY_MAP[q]);
+  }, [searchParams]);
 
   const [users, setUsers] = useState<User[]>([]);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -105,12 +129,34 @@ export default function SettingsPage() {
         </div>
         <div className="h-px bg-gradient-to-r from-transparent via-hud-cyan/30 to-transparent" />
 
+        {/* Onglets */}
+        <div className="flex gap-1 border-b border-hud-line overflow-x-auto">
+          {SETTINGS_TABS.map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition-all duration-150 ${
+                tab === t ? 'border-hud-cyan text-hud-cyan' : 'border-transparent text-gray-500 hover:text-gray-300'
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+
         {flash && (
           <div className="card p-3 border-emerald-400 bg-emerald-50 text-emerald-800 font-bold text-sm">
             ✓ {flash}
           </div>
         )}
 
+        {tab === 'Utilisateurs' && <UsersManager />}
+        {tab === 'Affectations' && <AssignmentsManager />}
+        {tab === 'Avances CV' && <CvAdvancesPanel />}
+        {tab === 'Structures Empire Group' && <StructureAssignmentsPanel users={users} />}
+
+        {tab === 'Accès & rôles' && (
+        <>
         {/* Contrôle des accès */}
         <div className="card overflow-hidden">
           <div className="flex items-center gap-2 p-4 border-b border-hud-line">
@@ -234,12 +280,6 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Avances / cautions des chauffeurs Condition-Vente existants */}
-        <CvAdvancesPanel />
-
-        {/* Affectation des structures Empire Group aux gestionnaires */}
-        <StructureAssignmentsPanel users={users} />
-
         {/* Matrice des permissions */}
         <div className="card overflow-hidden">
           <div className="flex items-center gap-2 p-4 border-b border-hud-line">
@@ -269,6 +309,8 @@ export default function SettingsPage() {
             </table>
           </div>
         </div>
+        </>
+        )}
       </div>
     </div>
   );

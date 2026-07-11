@@ -13,11 +13,10 @@ const links = [
   { href: '/dashboard', label: 'Accueil' },
   { href: '/drivers', label: 'Chauffeurs' },
   { href: '/pending-drivers', label: 'En attente' },
+  { href: '/garage', label: 'Garage' },
   { href: '/owners', label: 'Propriétaires', cap: 'owners' },
   { href: '/reports', label: 'Rapports', cap: 'reports' },
   { href: '/accounting', label: 'Comptabilité' },
-  { href: '/users', label: 'Utilisateurs', cap: 'users_manage' },
-  { href: '/assignments', label: 'Affectations', cap: 'assignments' },
   { href: '/settings', label: 'Paramètres', adminOnly: true },
 ] as const;
 

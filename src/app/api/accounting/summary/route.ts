@@ -1,15 +1,35 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireSession, handleAccessError } from '@/lib/access';
+import { BUSINESS_UNITS } from '@/lib/businessUnits';
 
-// GET /api/accounting/summary — indicateurs + séries pour graphiques
-export async function GET() {
+// GET /api/accounting/summary?businessUnit=&from=&to= — indicateurs + séries pour graphiques.
+// Sans businessUnit : vue générale (toutes structures confondues) + répartition par structure.
+// Avec businessUnit : comptabilité partielle, propre à cette structure.
+export async function GET(req: NextRequest) {
   try {
     await requireSession();
+    const { searchParams } = new URL(req.url);
+    const businessUnit = searchParams.get('businessUnit');
+    const from = searchParams.get('from');
+    const to = searchParams.get('to');
+
+    const where: Record<string, unknown> = {};
+    if (businessUnit) where.businessUnit = businessUnit;
+    if (from || to) {
+      where.date = {};
+      if (from) (where.date as Record<string, Date>).gte = new Date(from);
+      if (to) {
+        const end = new Date(to);
+        end.setHours(23, 59, 59, 999);
+        (where.date as Record<string, Date>).lte = end;
+      }
+    }
 
     const entries = await prisma.accountingEntry.findMany({
+      where,
       orderBy: { date: 'asc' },
-      select: { date: true, type: true, category: true, amount: true },
+      select: { date: true, type: true, category: true, amount: true, businessUnit: true },
     });
 
     let totalEntrees = 0;
@@ -20,6 +40,9 @@ export async function GET() {
     // Répartition des sorties et entrées par catégorie
     const catSorties = new Map<string, number>();
     const catEntrees = new Map<string, number>();
+
+    // Répartition par structure (uniquement pertinent en vue générale, sans filtre businessUnit).
+    const byStructureMap = new Map<string, { entrees: number; sorties: number }>();
 
     for (const e of entries) {
       const amt = Number(e.amount);
@@ -35,7 +58,22 @@ export async function GET() {
         catSorties.set(e.category, (catSorties.get(e.category) ?? 0) + amt);
       }
       byMonth.set(key, m);
+
+      const structKey = e.businessUnit ?? 'GENERAL';
+      const s = byStructureMap.get(structKey) ?? { entrees: 0, sorties: 0 };
+      if (e.type === 'ENTREE') s.entrees += amt; else s.sorties += amt;
+      byStructureMap.set(structKey, s);
     }
+
+    const byStructure = Array.from(byStructureMap.entries())
+      .map(([key, v]) => ({
+        businessUnit: key,
+        label: key === 'GENERAL' ? 'Général (hors structure)' : BUSINESS_UNITS.find((u) => u.key === key)?.label ?? key,
+        entrees: v.entrees,
+        sorties: v.sorties,
+        solde: v.entrees - v.sorties,
+      }))
+      .sort((a, b) => (b.entrees + b.sorties) - (a.entrees + a.sorties));
 
     // Série mensuelle avec solde cumulé
     const MONTHS_FR = ['jan', 'fév', 'mar', 'avr', 'mai', 'juin', 'juil', 'aoû', 'sep', 'oct', 'nov', 'déc'];
@@ -78,6 +116,7 @@ export async function GET() {
       monthly,
       categoriesSorties: toSortedArray(catSorties),
       categoriesEntrees: toSortedArray(catEntrees),
+      byStructure,
     });
   } catch (err) {
     return handleAccessError(err);

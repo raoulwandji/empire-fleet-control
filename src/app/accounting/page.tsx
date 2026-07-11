@@ -52,6 +52,8 @@ export default function AccountingPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filterType, setFilterType] = useState<'ALL' | 'ENTREE' | 'SORTIE'>('ALL');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   const [form, setForm] = useState({
     date: todayISO,
@@ -64,9 +66,13 @@ export default function AccountingPage() {
   });
 
   const load = useCallback(async () => {
+    const params = new URLSearchParams();
+    if (dateFrom) params.set('from', dateFrom);
+    if (dateTo) params.set('to', dateTo);
+    const qs = params.toString();
     const [eRes, sRes] = await Promise.all([
-      fetch('/api/accounting'),
-      fetch('/api/accounting/summary'),
+      fetch(`/api/accounting${qs ? `?${qs}` : ''}`),
+      fetch(`/api/accounting/summary${qs ? `?${qs}` : ''}`),
     ]);
     if (eRes.ok) {
       const d = await eRes.json();
@@ -74,7 +80,7 @@ export default function AccountingPage() {
     }
     if (sRes.ok) setSummary(await sRes.json());
     setLoading(false);
-  }, []);
+  }, [dateFrom, dateTo]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -235,23 +241,36 @@ export default function AccountingPage() {
 
         {/* Journal des opérations */}
         <div className="card overflow-hidden">
-          <div className="flex items-center justify-between p-4 border-b border-hud-line">
+          <div className="flex items-center justify-between p-4 border-b border-hud-line flex-wrap gap-3">
             <div className="flex items-center gap-2">
               <div className="w-1 h-5 rounded-full bg-hud-cyan" />
               <h2 className="hud-title">Journal des opérations</h2>
             </div>
-            <div className="flex gap-1">
-              {(['ALL', 'ENTREE', 'SORTIE'] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setFilterType(t)}
-                  className={`text-xs font-bold px-3 py-1 rounded-lg border transition-all ${
-                    filterType === t ? 'border-hud-cyan bg-hud-cyan/10 text-hud-cyan' : 'border-transparent text-gray-500 hover:text-gray-800'
-                  }`}
-                >
-                  {t === 'ALL' ? 'Tout' : t === 'ENTREE' ? 'Entrées' : 'Sorties'}
-                </button>
-              ))}
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-1.5">
+                <label className="text-xs text-gray-500 font-bold">Du</label>
+                <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="form-input text-xs py-1 px-2 w-36" />
+                <label className="text-xs text-gray-500 font-bold">Au</label>
+                <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="form-input text-xs py-1 px-2 w-36" />
+                {(dateFrom || dateTo) && (
+                  <button onClick={() => { setDateFrom(''); setDateTo(''); }} className="text-xs text-hud-cyan font-bold hover:underline">
+                    Réinitialiser
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-1">
+                {(['ALL', 'ENTREE', 'SORTIE'] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setFilterType(t)}
+                    className={`text-xs font-bold px-3 py-1 rounded-lg border transition-all ${
+                      filterType === t ? 'border-hud-cyan bg-hud-cyan/10 text-hud-cyan' : 'border-transparent text-gray-500 hover:text-gray-800'
+                    }`}
+                  >
+                    {t === 'ALL' ? 'Tout' : t === 'ENTREE' ? 'Entrées' : 'Sorties'}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
           <div className="overflow-x-auto">

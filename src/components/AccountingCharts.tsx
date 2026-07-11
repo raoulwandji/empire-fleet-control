@@ -8,6 +8,7 @@ import {
 
 type MonthPoint = { month: string; label: string; entrees: number; sorties: number; net: number; cumul: number };
 type CatSlice = { category: string; amount: number };
+type StructureSlice = { businessUnit: string; label: string; entrees: number; sorties: number; solde: number };
 
 export type AccountingSummary = {
   totals: { entrees: number; sorties: number; solde: number; count: number };
@@ -15,6 +16,7 @@ export type AccountingSummary = {
   monthly: MonthPoint[];
   categoriesSorties: CatSlice[];
   categoriesEntrees: CatSlice[];
+  byStructure?: StructureSlice[];
 };
 
 function fmt(v: number) {
@@ -41,7 +43,7 @@ const tooltipStyle = {
 };
 
 export default function AccountingCharts({ summary, animate }: { summary: AccountingSummary; animate: boolean }) {
-  const { monthly, categoriesSorties } = summary;
+  const { monthly, categoriesSorties, byStructure } = summary;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -144,6 +146,41 @@ export default function AccountingCharts({ summary, animate }: { summary: Accoun
           </div>
         )}
       </div>
+
+      {/* ─── Répartition par structure Empire Group (vue générale uniquement) ─── */}
+      {byStructure && byStructure.length > 0 && (
+        <div className="card p-5 space-y-3 lg:col-span-2">
+          <h2 className="hud-title">Répartition par structure</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+            <ResponsiveContainer width="100%" height={Math.max(220, byStructure.length * 36)}>
+              <ComposedChart data={byStructure} layout="vertical" margin={{ top: 8, right: 16, left: 8, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#ddd5c2" horizontal={false} />
+                <XAxis type="number" tick={{ fill: '#78716c', fontSize: 10, fontWeight: 700 }} tickFormatter={fmtK} />
+                <YAxis type="category" dataKey="label" width={150} tick={{ fill: '#57534e', fontSize: 10, fontWeight: 700 }} />
+                <Tooltip
+                  contentStyle={tooltipStyle}
+                  formatter={(v, n) => [`${fmt(Number(v))} FCFA`, n === 'entrees' ? 'Entrées' : 'Sorties']}
+                />
+                <Legend
+                  iconType="circle" iconSize={7}
+                  formatter={(v) => (v === 'entrees' ? 'Entrées' : 'Sorties')}
+                  wrapperStyle={{ fontSize: 11, fontWeight: 700, color: '#57534e' }}
+                />
+                <Bar dataKey="entrees" fill={GREEN} radius={[0, 4, 4, 0]} maxBarSize={16} isAnimationActive={animate} animationDuration={1200} />
+                <Bar dataKey="sorties" fill={RED} radius={[0, 4, 4, 0]} maxBarSize={16} isAnimationActive={animate} animationDuration={1200} />
+              </ComposedChart>
+            </ResponsiveContainer>
+            <div className="space-y-2">
+              {byStructure.map((s) => (
+                <div key={s.businessUnit} className="flex items-center justify-between text-sm border-b border-hud-line/40 pb-1.5">
+                  <span className="font-bold text-gray-800 truncate">{s.label}</span>
+                  <span className="font-bold tabular-nums" style={{ color: s.solde >= 0 ? GREEN : RED }}>{fmt(s.solde)} FCFA</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

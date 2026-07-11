@@ -213,3 +213,20 @@ export const structureAssignmentCreateSchema = z.object({
   userId: z.string(),
   businessUnit: businessUnitEnum,
 });
+
+const garageReasonTypeEnum = z.enum(['PANNE', 'REPARATION', 'ENTRETIEN', 'ACCIDENT', 'AUTRE']);
+
+export const garageEntryCreateSchema = z.object({
+  driverId: z.string(),
+  reasonType: garageReasonTypeEnum,
+  reason: z.string().min(1),
+  enteredAt: z.string(),
+  note: z.string().optional(),
+});
+
+export const garageEntryUpdateSchema = z.object({
+  reasonType: garageReasonTypeEnum.optional(),
+  reason: z.string().min(1).optional(),
+  enteredAt: z.string().optional(),
+  note: z.string().optional(),
+});

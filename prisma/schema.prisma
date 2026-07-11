@@ -60,6 +60,15 @@ enum StockMovementType {
   AJUSTEMENT // correction d'inventaire
 }
 
+// Motif d'immobilisation d'un véhicule au garage.
+enum GarageReasonType {
+  PANNE
+  REPARATION
+  ENTRETIEN
+  ACCIDENT
+  AUTRE
+}
+
 model User {
   id           String   @id @default(cuid())
   username     String   @unique
@@ -93,6 +102,7 @@ model User {
   productsCreated       Product[]             @relation("ProductCreatedBy")
   stockMovementsEntered StockMovement[]       @relation("StockMovementEnteredBy")
   structureAssignments  StructureAssignment[]
+  garageEntriesEntered  GarageEntry[]         @relation("GarageEntryEnteredBy")
 
   @@map("users")
 }
@@ -272,8 +282,31 @@ model Driver {
   comments         Comment[]
   prefinancements  OwnerPrefinancement[] @relation("DriverPrefinancements")
   walletMovements  WalletMovement[]
+  garageEntries    GarageEntry[]
 
   @@map("drivers")
+}
+
+// Immobilisation d'un véhicule au garage (panne, réparation, entretien...).
+// resolvedAt null = toujours inactif ; renseigné = remis en service.
+model GarageEntry {
+  id          String           @id @default(cuid())
+  driverId    String
+  reasonType  GarageReasonType
+  reason      String           // motif détaillé de la panne/réparation
+  enteredAt   DateTime         // date de mise hors service
+  resolvedAt  DateTime?        // date de remise en service (null = toujours au garage)
+  note        String?
+  enteredById String
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  driver    Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  enteredBy User   @relation("GarageEntryEnteredBy", fields: [enteredById], references: [id])
+
+  @@index([driverId])
+  @@index([resolvedAt])
+  @@map("garage_entries")
 }
 
 // Portefeuille des chauffeurs Condition-Vente : réserve de trésorerie courante où le
