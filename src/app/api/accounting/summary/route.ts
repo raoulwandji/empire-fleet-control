@@ -8,11 +8,15 @@ import { BUSINESS_UNITS } from '@/lib/businessUnits';
 // Avec businessUnit : comptabilité partielle, propre à cette structure.
 export async function GET(req: NextRequest) {
   try {
-    await requireSession();
+    const session = await requireSession();
     const { searchParams } = new URL(req.url);
     const businessUnit = searchParams.get('businessUnit');
     const from = searchParams.get('from');
     const to = searchParams.get('to');
+
+    if (!businessUnit && session.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: "La vue d'ensemble est réservée à l'administrateur." }, { status: 403 });
+    }
 
     const where: Record<string, unknown> = {};
     if (businessUnit) where.businessUnit = businessUnit;

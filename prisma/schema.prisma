@@ -204,34 +204,40 @@ model OwnerComment {
 }
 
 model OwnerCommission {
-  id          String   @id @default(cuid())
-  ownerId     String
-  weekStart   DateTime // lundi de la semaine
-  amount      Decimal  @db.Decimal(14, 2)
-  note        String?
-  enteredById String
-  createdAt   DateTime @default(now())
+  id                String   @id @default(cuid())
+  ownerId           String
+  weekStart         DateTime // lundi de la semaine
+  amount            Decimal  @db.Decimal(14, 2)
+  note              String?
+  enteredById       String
+  createdAt         DateTime @default(now())
+  // Écriture comptable ENTREE générée automatiquement dans la structure Empire Drive.
+  accountingEntryId String?  @unique
 
-  owner     Owner @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  enteredBy User  @relation("OwnerCommissionEnteredBy", fields: [enteredById], references: [id])
+  owner           Owner            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  enteredBy       User             @relation("OwnerCommissionEnteredBy", fields: [enteredById], references: [id])
+  accountingEntry AccountingEntry? @relation(fields: [accountingEntryId], references: [id], onDelete: SetNull)
 
   @@unique([ownerId, weekStart])
   @@map("owner_commissions")
 }
 
 model OwnerPrefinancement {
-  id          String   @id @default(cuid())
-  ownerId     String
-  driverId    String?  // véhicule concerné (optionnel)
-  weekStart   DateTime // lundi de la semaine
-  amount      Decimal  @db.Decimal(14, 2)
-  note        String?
-  enteredById String
-  createdAt   DateTime @default(now())
+  id                String   @id @default(cuid())
+  ownerId           String
+  driverId          String?  // véhicule concerné (optionnel)
+  weekStart         DateTime // lundi de la semaine
+  amount            Decimal  @db.Decimal(14, 2)
+  note              String?
+  enteredById       String
+  createdAt         DateTime @default(now())
+  // Écriture comptable SORTIE générée automatiquement dans la structure Empire Drive.
+  accountingEntryId String?  @unique
 
-  owner     Owner   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  driver    Driver? @relation("DriverPrefinancements", fields: [driverId], references: [id], onDelete: SetNull)
-  enteredBy User    @relation("OwnerPrefinancementEnteredBy", fields: [enteredById], references: [id])
+  owner           Owner            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  driver          Driver?          @relation("DriverPrefinancements", fields: [driverId], references: [id], onDelete: SetNull)
+  enteredBy       User             @relation("OwnerPrefinancementEnteredBy", fields: [enteredById], references: [id])
+  accountingEntry AccountingEntry? @relation(fields: [accountingEntryId], references: [id], onDelete: SetNull)
 
   @@map("owner_prefinancements")
 }
@@ -444,6 +450,8 @@ model AccountingEntry {
 
   enteredBy      User            @relation("AccountingEnteredBy", fields: [enteredById], references: [id])
   stockMovement  StockMovement?
+  ownerCommission     OwnerCommission?
+  ownerPrefinancement OwnerPrefinancement?
 
   @@index([date])
   @@index([type])

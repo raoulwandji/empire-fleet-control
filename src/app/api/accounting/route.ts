@@ -24,15 +24,21 @@ const createSchema = z.object({
   businessUnit: businessUnitEnum.optional(),
 });
 
-// GET /api/accounting?from=&to=&type=&businessUnit= — tous les utilisateurs authentifiés
+// GET /api/accounting?from=&to=&type=&businessUnit=
+// Vue d'ensemble (sans businessUnit) réservée à l'ADMIN ; les autres utilisateurs
+// doivent préciser une structure (comptabilité partielle).
 export async function GET(req: NextRequest) {
   try {
-    await requireSession();
+    const session = await requireSession();
     const { searchParams } = new URL(req.url);
     const from = searchParams.get('from');
     const to = searchParams.get('to');
     const type = searchParams.get('type');
     const businessUnit = searchParams.get('businessUnit');
+
+    if (!businessUnit && session.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: "La vue d'ensemble est réservée à l'administrateur." }, { status: 403 });
+    }
 
     const where: Record<string, unknown> = {};
     if (from || to) {

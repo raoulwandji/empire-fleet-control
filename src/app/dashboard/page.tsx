@@ -117,6 +117,7 @@ export default function DashboardPage() {
           <CommissionsEvolutionChart />
         </div>
 
+        <GaragePanel />
         <ProgressPanel />
         <SanctionsPanel />
         <WeeklyStatusPanel />
@@ -396,6 +397,67 @@ function RankingPanel({ title, color, data }: { title: string; color: 'cyan' | '
             </table>
           )}
         </>
+      )}
+    </div>
+  );
+}
+
+type GarageRow = {
+  id: string;
+  driver: { id: string; code: string; fullName: string; vehiclePlate: string };
+  reasonType: 'PANNE' | 'REPARATION' | 'ENTRETIEN' | 'ACCIDENT' | 'AUTRE';
+  reason: string;
+  enteredAt: string;
+};
+
+const GARAGE_REASON_LABELS: Record<string, string> = {
+  PANNE: 'Panne', REPARATION: 'Réparation', ENTRETIEN: 'Entretien', ACCIDENT: 'Accident', AUTRE: 'Autre',
+};
+
+function GaragePanel() {
+  const [rows, setRows] = useState<GarageRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/garage?status=active')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setRows(Array.isArray(d) ? d : []))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <div className="card p-5">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <div className="w-1 h-5 rounded-full bg-empire-rouge" />
+          <h2 className="hud-title">Véhicules au garage</h2>
+          {rows.length > 0 && <span className="badge-warn">{rows.length} immobilisé{rows.length > 1 ? 's' : ''}</span>}
+        </div>
+        <Link href="/garage" className="neon-link text-xs font-semibold">Voir le garage →</Link>
+      </div>
+
+      {loading ? (
+        <p className="text-xs text-gray-500 tracking-widest animate-pulse">⟳ CHARGEMENT...</p>
+      ) : rows.length === 0 ? (
+        <p className="text-sm text-gray-500 italic">Aucun véhicule immobilisé — flotte entièrement active.</p>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {rows.map((r) => (
+            <Link
+              key={r.id}
+              href={`/drivers/${r.driver.id}`}
+              className="block p-3 rounded-lg border border-empire-rouge/30 bg-empire-rouge/5 hover:border-empire-rouge/60 transition-colors"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-mono text-sm font-bold text-gray-800">{r.driver.vehiclePlate}</span>
+                <span className="badge-warn text-[10px]">{GARAGE_REASON_LABELS[r.reasonType] ?? r.reasonType}</span>
+              </div>
+              <div className="text-xs text-gray-600 mt-1">{r.driver.fullName} <span className="text-gray-400">({r.driver.code})</span></div>
+              <div className="text-xs text-gray-500 italic mt-1 truncate">{r.reason}</div>
+              <div className="text-[10px] text-gray-400 mt-1">Depuis le {new Date(r.enteredAt).toLocaleDateString('fr-FR')}</div>
+            </Link>
+          ))}
+        </div>
       )}
     </div>
   );

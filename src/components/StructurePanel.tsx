@@ -141,6 +141,8 @@ export default function StructurePanel({ businessUnit, canDelete }: { businessUn
         <ServiceSection businessUnit={businessUnit} services={[...config.services]} onSaved={load} />
       )}
 
+      <ExpenseSection businessUnit={businessUnit} onSaved={load} />
+
       <div className="card overflow-hidden">
         <div className="p-4 border-b border-hud-line">
           <h2 className="hud-title">Journal — {config.label}</h2>
@@ -399,6 +401,81 @@ function ServiceSection({ businessUnit, services, onSaved }: { businessUnit: str
         </div>
         <button type="submit" disabled={saving} className="btn-primary text-sm">
           {saving ? 'Enregistrement...' : 'Enregistrer la vente'}
+        </button>
+        {error && <p className="text-xs text-empire-rouge w-full font-bold">{error}</p>}
+      </form>
+    </div>
+  );
+}
+
+const EXPENSE_CATEGORIES = ['Salaire', 'Loyer', 'Fournitures', 'Transport', 'Communication', 'Entretien', 'Autre dépense'];
+
+function ExpenseSection({ businessUnit, onSaved }: { businessUnit: string; onSaved: () => void }) {
+  const [category, setCategory] = useState(EXPENSE_CATEGORIES[0]);
+  const [label, setLabel] = useState('');
+  const [amount, setAmount] = useState('');
+  const [date, setDate] = useState(todayISO());
+  const [note, setNote] = useState('');
+  const [paymentMode, setPaymentMode] = useState('ESPECES');
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(''); setSaving(true);
+    const res = await fetch('/api/accounting', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        date, type: 'SORTIE', category, label: label || category, amount: Number(amount),
+        paymentMode, note: note || undefined, businessUnit,
+      }),
+    });
+    setSaving(false);
+    if (!res.ok) { const d = await res.json().catch(() => ({})); setError(d.error ?? 'Erreur.'); return; }
+    setLabel(''); setAmount(''); setNote('');
+    onSaved();
+  }
+
+  return (
+    <div className="card p-5 space-y-3">
+      <div className="flex items-center gap-2">
+        <div className="w-1 h-5 rounded-full bg-empire-rouge" />
+        <h2 className="hud-title">Dépenses</h2>
+      </div>
+      <form onSubmit={handleSubmit} className="flex flex-wrap gap-3 items-end">
+        <div>
+          <label className="hud-label">Catégorie</label>
+          <select value={category} onChange={(e) => setCategory(e.target.value)} className="form-select w-44">
+            {EXPENSE_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+        <div className="flex-1 min-w-[160px]">
+          <label className="hud-label">Libellé</label>
+          <input value={label} onChange={(e) => setLabel(e.target.value)} className="form-input w-full" placeholder="Description de la dépense" />
+        </div>
+        <div>
+          <label className="hud-label">Montant (FCFA)</label>
+          <input type="number" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} required className="form-input w-36" />
+        </div>
+        <div>
+          <label className="hud-label">Date</label>
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required className="form-input w-auto" />
+        </div>
+        <div>
+          <label className="hud-label">Mode</label>
+          <select value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)} className="form-select w-36">
+            <option value="ESPECES">Espèces</option>
+            <option value="MOBILE_MONEY">Mobile Money</option>
+            <option value="VIREMENT">Virement</option>
+            <option value="AUTRE">Autre</option>
+          </select>
+        </div>
+        <div className="flex-1 min-w-[160px]">
+          <label className="hud-label">Note</label>
+          <input value={note} onChange={(e) => setNote(e.target.value)} className="form-input w-full" />
+        </div>
+        <button type="submit" disabled={saving} className="btn-danger text-sm">
+          {saving ? 'Enregistrement...' : 'Enregistrer la dépense'}
         </button>
         {error && <p className="text-xs text-empire-rouge w-full font-bold">{error}</p>}
       </form>
