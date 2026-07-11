@@ -9,6 +9,7 @@ export const config = {
     '/dashboard/:path*',
     '/drivers/:path*',
     '/pending-drivers/:path*',
+    '/garage/:path*',
     '/owners/:path*',
     '/reports/:path*',
     '/accounting/:path*',
